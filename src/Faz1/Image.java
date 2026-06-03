@@ -12,6 +12,8 @@ public class Image {
     private String caption;
     private Set <String> tags ;
     private Set <Long> albumIds = new HashSet<>() ;
+    private Set <User> usersWhoLiked = new HashSet<>();
+    private long likes;
 
 
     public Image( User owner , String name, String caption, String date , Set<String> tags) {
@@ -21,6 +23,7 @@ public class Image {
         this.date = date;
         this.tags = new HashSet<>(tags);
         this.id = makeRandomId();
+        this.likes= 0;
     }
     public long makeRandomId() {
         Random random = new Random();
@@ -53,6 +56,16 @@ public class Image {
     public void removeFromAlbum(Album album){
         albumIds.remove(album.getId());
         album.removeImageFromAlbum(this);
+    }
+    public void addLikeAndRimoveLike(User user){
+        if(usersWhoLiked.contains(user)){
+            likes--;
+            usersWhoLiked.remove(user);
+        }
+        else{
+            usersWhoLiked.add(user);
+            likes++;
+        }
     }
 
     public long getId() {

@@ -1,6 +1,7 @@
 package Faz1;
 
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class User {
     private String username;
@@ -100,5 +101,15 @@ public class User {
             throw new Exception("phone number lenght should be 11") ;
     }
 
+    @Override
+    public boolean equals(Object object) {
+        if (object == null || getClass() != object.getClass()) return false;
+        User user = (User) object;
+        return Objects.equals(username, user.username);
+    }
 
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(username);
+    }
 }
