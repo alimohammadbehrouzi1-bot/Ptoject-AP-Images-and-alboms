@@ -5,20 +5,24 @@ import java.util.List;
 import java.util.Set;
 
 public class Album {
-    long id;
-    private Set<Long> imagesid;
+    private final long id;
+    private Set<Long> imagesId;
 
 
-    public Album(long id, Set<Long> imagesid) {
+    public Album(long id, Set<Image> images) {
         this.id = id;
-        this.imagesid = new HashSet<>();
+        this.imagesId= new HashSet<>(images.stream().map(a->a.getId()).toList());
     }
-    public void addImageId(long imageid){
-        imagesid.add(imageid);
+
+    public void addImageToAlbum (Image image){
+        imagesId.add(image.getId());
 
     }
-    public void removeImageFromAlbum(long imageid){
-        imagesid.remove(imageid);
+    public void removeImageFromAlbum(Image image){
+        imagesId.remove(image.getId());
+    }
+
+    public long getId() {
+        return id;
     }
 }
-// Test
