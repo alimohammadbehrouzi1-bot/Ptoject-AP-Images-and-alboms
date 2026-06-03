@@ -1,7 +1,9 @@
 package Faz1;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 public class User {
     private String username;
@@ -11,12 +13,14 @@ public class User {
 
     private ArrayList<Album> albums;
     private ArrayList<Image> images;
+    private Set<Long> likedImageIds;
 
     public User( String username, String password) throws Exception {
         this.username = username;
         setPassword(password);
         this.albums = new ArrayList<>();
         this.images = new ArrayList<>();
+        this.likedImageIds = new HashSet<>();
     }
     public User( String username, String password ,String email) throws Exception {
         this(username , password);
@@ -99,6 +103,10 @@ public class User {
         }
         else
             throw new Exception("phone number lenght should be 11") ;
+    }
+
+    public Set<Long> getLikedImageIds() {
+        return likedImageIds;
     }
 
     @Override

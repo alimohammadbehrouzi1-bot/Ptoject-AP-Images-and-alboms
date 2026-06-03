@@ -61,10 +61,12 @@ public class Image {
         if(usersWhoLiked.contains(user)){
             likes--;
             usersWhoLiked.remove(user);
+            user.getLikedImageIds().remove(this.id);
         }
         else{
             usersWhoLiked.add(user);
             likes++;
+            user.getLikedImageIds().add(this.id);
         }
     }
 
