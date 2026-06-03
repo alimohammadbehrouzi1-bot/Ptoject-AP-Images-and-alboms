@@ -2,17 +2,25 @@ package Faz1;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 
 public class Album {
-    private final long id;
+    private final User owner ;
+    private final long id ;
     private Set<Long> imagesId;
 
 
-    public Album(long id, Set<Image> images) {
-        this.id = id;
-        this.imagesId= new HashSet<>(images.stream().map(a->a.getId()).toList());
+    public Album(User owner, Set<Image> images) {
+        this.owner = owner;
+        this.imagesId = new HashSet<>();
+        this.id = makeRandomId();
+
+        for (Image img : images) {
+            img.addNewAlbum(this);
+        }
     }
+
 
     public void addImageToAlbum (Image image){
         imagesId.add(image.getId());
@@ -24,5 +32,26 @@ public class Album {
 
     public long getId() {
         return id;
+    }
+
+    public long makeRandomId() {
+        Random random = new Random();
+        long idCreated;
+        boolean exists;
+
+        do {
+            idCreated = random.nextInt(90000) + 10000;
+            exists = false;
+
+            for (Album album : owner.getAlbums()) {
+                if (album.getId() == idCreated) {
+                    exists = true;
+                    break;
+                }
+            }
+
+        } while (exists);
+
+        return idCreated;
     }
 }

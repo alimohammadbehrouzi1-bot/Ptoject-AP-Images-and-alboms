@@ -4,22 +4,48 @@ import java.util.*;
 
 
 public class Image {
+    private User owner ;
     private final long id ;
     private String path;
     private  String date;
     private  String name;
     private String caption;
     private Set <String> tags ;
-    private Set <Long> albumIds ;
+    private Set <Long> albumIds = new HashSet<>() ;
 
-    public Image( String caption, String date, long id, String name, String path, Set<String> tags) {
+
+    public Image( User owner , String name, String caption, String date , Set<String> tags) {
+        this.owner = owner ;
         this.name = name;
         this.caption = caption;
         this.date = date;
-        this.id = id;
-        this.path = path;
         this.tags = new HashSet<>(tags);
+        this.id = makeRandomId();
     }
+    public long makeRandomId() {
+        Random random = new Random();
+        long idCreated;
+        boolean exists;
+
+        do {
+            idCreated = random.nextInt(90000) + 10000;
+            exists = false;
+
+            for (Image img : owner.getImages()) {
+                if (img.getId() == idCreated) {
+                    exists = true;
+                    break;
+                }
+            }
+
+        } while (exists);
+
+        return idCreated;
+    }
+
+
+
+
     public void addNewAlbum(Album album) {
         albumIds.add(album.getId());
         album.addImageToAlbum(this);

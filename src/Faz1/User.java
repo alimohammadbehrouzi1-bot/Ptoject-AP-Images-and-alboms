@@ -8,8 +8,8 @@ public class User {
     private String email;
     private Long phoneNumber;
 
-    private ArrayList<String> albums; //fix it
-    private ArrayList<String> images; // fix it
+    private ArrayList<Album> albums;
+    private ArrayList<Image> images;
 
     public User( String username, String password) throws Exception {
         this.username = username;
@@ -36,10 +36,6 @@ public class User {
         return username;
     }
 
-    public String getPassword() {
-
-        return password;
-    }
 
     public String getEmail() {
         return email;
@@ -48,14 +44,15 @@ public class User {
     public Long getPhoneNumber() {
         return phoneNumber;
     }
-    //fix it
-    public ArrayList<String> getAlbums() {
+
+    public ArrayList<Album> getAlbums() {
         return albums;
     }
-    // fix it
-    public ArrayList<String> getImages() {
+
+    public ArrayList<Image> getImages() {
         return images;
     }
+
 
     public void setPassword(String password) throws Exception {
         boolean hasUpper = false;
@@ -79,6 +76,7 @@ public class User {
         throw new Exception("Password must be at least 8 characters.");
     }
 
+
     public void setEmail(String email) throws Exception{
         if (email.endsWith("@gmail.com") && !email.startsWith("@gmail.com")) {
             this.email = email;
@@ -86,6 +84,8 @@ public class User {
         }
         else throw new Exception("Email is not valid") ;
     }
+
+
     public void setPhoneNumber(Long phoneNumber) throws Exception{
         String PhoneNumber2=phoneNumber.toString() ;
         if (PhoneNumber2.length() == 11 ){
@@ -99,6 +99,6 @@ public class User {
         else
             throw new Exception("phone number lenght should be 11") ;
     }
-    //Test
+
 
 }
