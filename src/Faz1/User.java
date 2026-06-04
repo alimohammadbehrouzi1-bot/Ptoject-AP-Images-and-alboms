@@ -1,6 +1,6 @@
 package Faz1;
 
-import java.util.ArrayList;
+import java.util.*;
 
 public class User {
     private String username;
@@ -10,23 +10,28 @@ public class User {
 
     private ArrayList<Album> albums;
     private ArrayList<Image> images;
+    private Set<Long> likedImageIds;
 
-    public User( String username, String password) throws Exception {
+    public User(String username, String password) throws Exception {
         this.username = username;
         setPassword(password);
         this.albums = new ArrayList<>();
         this.images = new ArrayList<>();
+        this.likedImageIds = new HashSet<>();
     }
-    public User( String username, String password ,String email) throws Exception {
-        this(username , password);
+
+    public User(String username, String password, String email) throws Exception {
+        this(username, password);
         setEmail(email);
     }
-    public User( String username, String password , Long phoneNumber) throws Exception {
-        this(username , password);
+
+    public User(String username, String password, Long phoneNumber) throws Exception {
+        this(username, password);
         setPhoneNumber(phoneNumber);
     }
-    public User(String username, String password , String email , Long phoneNumber) throws Exception {
-        this(username , password) ;
+
+    public User(String username, String password, String email, Long phoneNumber) throws Exception {
+        this(username, password);
         setEmail(email);
         setPhoneNumber(phoneNumber);
     }
@@ -53,6 +58,25 @@ public class User {
         return images;
     }
 
+    public void uploadImage(String name, String path, String caption, String date, Set<String> tags) {
+
+        Image image = new Image(this, path, name, caption, date, tags);
+
+        images.add(image);
+
+    }
+    public void makeNewAlbum(String name){
+        Album album = new Album(this,name);
+        albums.add(album);
+    }
+    public void makeNewAlbum(String name,Image ... imageid){
+        Set<Image> set = new HashSet<>();
+        set.addAll(Arrays.asList(imageid));
+        Album album = new Album(this,name,set);
+        albums.add(album);
+
+    }
+
 
     public void setPassword(String password) throws Exception {
         boolean hasUpper = false;
@@ -66,10 +90,9 @@ public class User {
                     else if (Character.isDigit(c)) hasDigit = true;
                 }
                 if (hasDigit && hasLower && hasUpper) {
-                    this.password = password ;
+                    this.password = password;
                     return;
-                }
-                else  throw new Exception("Password must contain uppercase, lowercase and digit.");
+                } else throw new Exception("Password must contain uppercase, lowercase and digit.");
             }
             throw new Exception("Password must not contain username.");
         }
@@ -77,28 +100,39 @@ public class User {
     }
 
 
-    public void setEmail(String email) throws Exception{
+    public void setEmail(String email) throws Exception {
         if (email.endsWith("@gmail.com") && !email.startsWith("@gmail.com")) {
             this.email = email;
             return;
-        }
-        else throw new Exception("Email is not valid") ;
+        } else throw new Exception("Email is not valid");
     }
 
 
-    public void setPhoneNumber(Long phoneNumber) throws Exception{
-        String PhoneNumber2=phoneNumber.toString() ;
-        if (PhoneNumber2.length() == 11 ){
+    public void setPhoneNumber(Long phoneNumber) throws Exception {
+        String PhoneNumber2 = phoneNumber.toString();
+        if (PhoneNumber2.length() == 11) {
             if (PhoneNumber2.startsWith("98")) {
                 this.phoneNumber = phoneNumber;
                 return;
-            }
-            else
+            } else
                 throw new Exception("phone number should start with 98");
-        }
-        else
-            throw new Exception("phone number lenght should be 11") ;
+        } else
+            throw new Exception("phone number lenght should be 11");
     }
 
+    public Set<Long> getLikedImageIds() {
+        return likedImageIds;
+    }
 
+    @Override
+    public boolean equals(Object object) {
+        if (object == null || getClass() != object.getClass()) return false;
+        User user = (User) object;
+        return Objects.equals(username, user.username);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(username);
+    }
 }

@@ -7,12 +7,21 @@ import java.util.Set;
 
 public class Album {
     private final User owner ;
+    private String name;
     private final long id ;
     private Set<Long> imagesId;
 
-
-    public Album(User owner, Set<Image> images) {
+    public Album(User owner,String name) {
         this.owner = owner;
+        this.name=name;
+        this.imagesId = new HashSet<>();
+        this.id = makeRandomId();
+    }
+
+
+    public Album(User owner,String name, Set<Image> images) {
+        this.owner = owner;
+        this.name = name;
         this.imagesId = new HashSet<>();
         this.id = makeRandomId();
 
