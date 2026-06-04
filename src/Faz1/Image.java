@@ -10,11 +10,13 @@ public class Image {
     private String path;
     private  String date;
     private  String name;
-    private Caption caption;
+    private String caption;
     private Set <String> tags ;
     private Set <Long> albumIds = new HashSet<>() ;
     private Set <User> usersWhoLiked = new HashSet<>();
     private long likes;
+
+    private ArrayList<Comment>  comments = new ArrayList<>() ;
 
 
     public Image( User owner ,String path, String name, String date ) throws Exception{
@@ -28,7 +30,7 @@ public class Image {
     public Image( User owner ,String path, String name, String date , String caption) throws Exception{
         super();
         this.id = makeRandomId();
-        this.caption = new Caption(caption) ;
+        this.caption =caption ;
     }
     public Image( User owner ,String path, String name, String date ,Set<String> tags){
         super();
@@ -38,7 +40,7 @@ public class Image {
     public Image( User owner ,String path, String name, String date,String caption , Set<String> tags) throws Exception{
         super();
         this.id = makeRandomId();
-        this.caption = new Caption(caption) ;
+        this.caption = caption ;
         this.tags =new HashSet<>(tags);
     }
     public long makeRandomId() {
@@ -62,7 +64,7 @@ public class Image {
         return idCreated;
     }
     public void addOrEditCaption(String caption) throws Exception {
-        this.caption = new Caption(caption) ;
+        this.caption = caption ;
     }
     public void addOrEditTags(Set<String> tags){
         this.tags = tags ;
@@ -86,6 +88,9 @@ public class Image {
         albumIds.remove(album.getId());
     }
 
+    public void addComment(User user,Comment comment){
+        comments.add(comment);
+    }
 
     public void addLikeAndRemoveLike(User user){
         if(usersWhoLiked.contains(user)){

@@ -11,15 +11,15 @@ public class User {
     private ArrayList<Album> albums;
     private ArrayList<Image> images;
     private Set<Long> likedImageIds;
-    private Set<Caption> likedCaption ;
-
+    private Set<Comment> likedComment ;
+    private Set<Comment> yourComments = new HashSet<>();
     public User(String username, String password) throws Exception {
         this.username = username;
         setPassword(password);
         this.albums = new ArrayList<>();
         this.images = new ArrayList<>();
         this.likedImageIds = new HashSet<>();
-        this.likedCaption  = new HashSet<>();
+        this.likedComment  = new HashSet<>();
     }
 
     public User(String username, String password, String email) throws Exception {
@@ -63,8 +63,8 @@ public class User {
         return likedImageIds;
     }
 
-    public Set<Caption> getLikedCaption() {
-        return likedCaption;
+    public Set<Comment> getLikedComment() {
+        return likedComment;
     }
 
     public void uploadImage(String name, String path, String caption, String date, Set<String> tags) throws Exception {
@@ -98,10 +98,15 @@ public class User {
     public void addOrRemoveLikeImage(Image image){
         image.addLikeAndRemoveLike(this);
     }
-    public void addOrRemoveLikeCaption(Caption caption){
-        caption.addLikeAndRemoveCaption(this);
+    public void addOrRemoveLikeComment(Comment comment){
+        comment.addLikeAndRemoveComment(this);
     }
 
+    public void writeComment(Image image , String string , String time) throws Exception {
+        Comment comment =new Comment(this ,image , string ,time );
+        image.addComment(this , comment);
+        yourComments.add(comment);
+    }
 
 
     public void setPassword(String password) throws Exception {
