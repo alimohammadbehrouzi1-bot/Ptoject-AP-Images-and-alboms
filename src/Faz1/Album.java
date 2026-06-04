@@ -21,7 +21,6 @@ public class Album {
         }
     }
 
-
     public void addImageToAlbum (Image image){
         imagesId.add(image.getId());
 
