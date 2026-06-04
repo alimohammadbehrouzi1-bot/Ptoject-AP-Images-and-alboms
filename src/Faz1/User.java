@@ -68,12 +68,22 @@ public class User {
     }
 
     public void uploadImage(String name, String path, String caption, String date, Set<String> tags) throws Exception {
-
-        Image image = new Image(this, path, name, date, caption  , tags);
-
-        images.add(image);
-
+        Image image = new Image(this, path, name, date, caption, tags);
+        images.add(image) ;
     }
+    public void uploadImage(String name , String path , String caption , String date) throws Exception {
+        Image image =new Image(this , path , name ,date , caption);
+        images.add(image);
+    }
+    public void uploadImage(String name , String path , String date ,Set<String> tags ) throws Exception {
+        Image image =new Image(this , path , name ,date , tags);
+        images.add(image);
+    }
+    public void uploadImage(String name , String path , String date) throws Exception {
+        Image image =new Image(this , path , name ,date);
+        images.add(image);
+    }
+
     public void makeNewAlbum(String name){
         Album album = new Album(this,name);
         albums.add(album);
