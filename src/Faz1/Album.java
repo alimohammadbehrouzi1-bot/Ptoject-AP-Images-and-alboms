@@ -28,12 +28,22 @@ public class Album {
         }
     }
 
-    public void addImageToAlbum (Image image){
+    public void addImageToAlbumViaImage(Image image){
         imagesId.add(image.getId());
 
     }
-    public void removeImageFromAlbum(Image image){
+    public void removeImageFromAlbumViaImage(Image image){
         imagesId.remove(image.getId());
+    }
+    public void addImageToAlbum(Image... images){
+        List<Image> list = Arrays.stream(images).distinct().collect(Collectors.toList());
+        list.forEach(a->imagesId.add(a.getId()));
+        list.forEach(a->a.addNewAlbumViaAlbum(this));
+    }
+    public void removeImageFromAlbum(Image... images){
+        List<Image> list = Arrays.stream(images).distinct().collect(Collectors.toList());
+        list.forEach(a->imagesId.remove(a.getId()));
+        list.forEach(a->a.removeAlbumViaAlbum(this));
     }
 
     public boolean moveImagesToAnotherAlbum(Album destAlbum, Image... images) {

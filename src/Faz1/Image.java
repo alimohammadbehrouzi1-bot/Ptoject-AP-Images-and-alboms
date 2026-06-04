@@ -1,6 +1,7 @@
 package Faz1;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 public class Image {
@@ -68,15 +69,24 @@ public class Image {
     }
 
 
-
-    public void addNewAlbum(Album album) {
+    public void addNewAlbum(Album... albums) {
+        List<Album> list = Arrays.stream(albums).distinct().collect(Collectors.toList());
+        list.forEach(a -> albumIds.add(a.getId()));
+        list.forEach(a -> a.addImageToAlbumViaImage(this));
+    }
+    public void removeFromAlbum(Album... albums){
+        List<Album> list = Arrays.stream(albums).distinct().collect(Collectors.toList());
+        list.forEach(a-> albumIds.remove(a.getId()));
+        list.forEach(a->a.removeImageFromAlbumViaImage(this));
+    }
+    public void addNewAlbumViaAlbum(Album album){
         albumIds.add(album.getId());
-        album.addImageToAlbum(this);
     }
-    public void removeFromAlbum(Album album){
+    public void removeAlbumViaAlbum(Album album){
         albumIds.remove(album.getId());
-        album.removeImageFromAlbum(this);
     }
+
+
     public void addLikeAndRemoveLike(User user){
         if(usersWhoLiked.contains(user)){
             likes--;
