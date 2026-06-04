@@ -16,8 +16,9 @@ public class Image {
     private long likes;
 
 
-    public Image( User owner , String name, String caption, String date , Set<String> tags) {
+    public Image( User owner ,String path, String name, String caption, String date , Set<String> tags) {
         this.owner = owner ;
+        this.path = path;
         this.name = name;
         this.caption = caption;
         this.date = date;
