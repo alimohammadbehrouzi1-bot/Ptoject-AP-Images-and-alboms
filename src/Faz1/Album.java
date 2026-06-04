@@ -1,9 +1,7 @@
 package Faz1;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Album {
     private final User owner ;
@@ -38,6 +36,15 @@ public class Album {
         imagesId.remove(image.getId());
     }
 
+    public boolean moveImagesToAnotherAlbum(Album destAlbum, Image... images) {
+        List<Image> list = Arrays.stream(images).distinct().collect(Collectors.toList());
+        boolean check = list.stream().allMatch(a -> this.imagesId.contains(a.getId()));
+        if (check) {
+            list.forEach(a -> a.removeFromAlbum(this));
+            list.forEach(a -> a.addNewAlbum(destAlbum));
+        }
+        return check ;
+    }
     public long getId() {
         return id;
     }
