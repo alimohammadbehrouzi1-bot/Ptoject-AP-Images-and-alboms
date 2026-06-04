@@ -9,22 +9,36 @@ public class Image {
     private String path;
     private  String date;
     private  String name;
-    private String caption;
+    private Caption caption;
     private Set <String> tags ;
     private Set <Long> albumIds = new HashSet<>() ;
     private Set <User> usersWhoLiked = new HashSet<>();
     private long likes;
 
 
-    public Image( User owner ,String path, String name, String caption, String date , Set<String> tags) {
+    public Image( User owner ,String path, String name, String date ) throws Exception{
         this.owner = owner ;
         this.path = path;
         this.name = name;
-        this.caption = caption;
         this.date = date;
-        this.tags = new HashSet<>(tags);
         this.id = makeRandomId();
         this.likes= 0;
+    }
+    public Image( User owner ,String path, String name, String date , String caption) throws Exception{
+        super();
+        this.id = makeRandomId();
+        this.caption = new Caption(caption) ;
+    }
+    public Image( User owner ,String path, String name, String date ,Set<String> tags){
+        super();
+        this.id = makeRandomId();
+        this.tags =new HashSet<>(tags);
+    }
+    public Image( User owner ,String path, String name, String date,String caption , Set<String> tags) throws Exception{
+        super();
+        this.id = makeRandomId();
+        this.caption = new Caption(caption) ;
+        this.tags =new HashSet<>(tags);
     }
     public long makeRandomId() {
         Random random = new Random();
@@ -46,7 +60,12 @@ public class Image {
 
         return idCreated;
     }
-
+    public void addOrEditCaption(String caption) throws Exception {
+        this.caption = new Caption(caption) ;
+    }
+    public void addOrEditTags(Set<String> tags){
+        this.tags = tags ;
+    }
 
 
 
@@ -58,7 +77,7 @@ public class Image {
         albumIds.remove(album.getId());
         album.removeImageFromAlbum(this);
     }
-    public void addLikeAndRimoveLike(User user){
+    public void addLikeAndRemoveLike(User user){
         if(usersWhoLiked.contains(user)){
             likes--;
             usersWhoLiked.remove(user);

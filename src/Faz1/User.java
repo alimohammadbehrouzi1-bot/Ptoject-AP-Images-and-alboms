@@ -11,6 +11,7 @@ public class User {
     private ArrayList<Album> albums;
     private ArrayList<Image> images;
     private Set<Long> likedImageIds;
+    private Set<Caption> likedCaption ;
 
     public User(String username, String password) throws Exception {
         this.username = username;
@@ -18,6 +19,7 @@ public class User {
         this.albums = new ArrayList<>();
         this.images = new ArrayList<>();
         this.likedImageIds = new HashSet<>();
+        this.likedCaption  = new HashSet<>();
     }
 
     public User(String username, String password, String email) throws Exception {
@@ -57,10 +59,17 @@ public class User {
     public ArrayList<Image> getImages() {
         return images;
     }
+    public Set<Long> getLikedImageIds() {
+        return likedImageIds;
+    }
 
-    public void uploadImage(String name, String path, String caption, String date, Set<String> tags) {
+    public Set<Caption> getLikedCaption() {
+        return likedCaption;
+    }
 
-        Image image = new Image(this, path, name, caption, date, tags);
+    public void uploadImage(String name, String path, String caption, String date, Set<String> tags) throws Exception {
+
+        Image image = new Image(this, path, name, date, caption  , tags);
 
         images.add(image);
 
@@ -76,6 +85,13 @@ public class User {
         albums.add(album);
 
     }
+    public void addOrRemoveLikeImage(Image image){
+        image.addLikeAndRemoveLike(this);
+    }
+    public void addOrRemoveLikeCaption(Caption caption){
+        caption.addLikeAndRemoveCaption(this);
+    }
+
 
 
     public void setPassword(String password) throws Exception {
@@ -120,9 +136,7 @@ public class User {
             throw new Exception("phone number lenght should be 11");
     }
 
-    public Set<Long> getLikedImageIds() {
-        return likedImageIds;
-    }
+
 
     @Override
     public boolean equals(Object object) {
