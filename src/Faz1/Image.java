@@ -11,7 +11,7 @@ public class Image {
     private  String date;
     private  String name;
     private String caption;
-    private Set <String> tags ;
+    private Set <String> tags = new HashSet<>() ;
     private Set <Long> albumIds = new HashSet<>() ;
     private Set <User> usersWhoLiked = new HashSet<>();
     private long likes;
@@ -28,20 +28,17 @@ public class Image {
         this.likes= 0;
     }
     public Image( User owner ,String path, String name, String date , String caption) throws Exception{
-        super();
-        this.id = makeRandomId();
+        this(owner, path, name, date);
         this.caption =caption ;
     }
-    public Image( User owner ,String path, String name, String date ,Set<String> tags){
-        super();
-        this.id = makeRandomId();
-        this.tags =new HashSet<>(tags);
+    public Image( User owner ,String path, String name, String date ,Set<String> tags)throws Exception{
+        this(owner, path, name, date);
+        this.tags =tags;
     }
     public Image( User owner ,String path, String name, String date,String caption , Set<String> tags) throws Exception{
-        super();
-        this.id = makeRandomId();
+        this(owner, path, name, date);
         this.caption = caption ;
-        this.tags =new HashSet<>(tags);
+        this.tags =tags;
     }
     public long makeRandomId() {
         Random random = new Random();
@@ -107,5 +104,21 @@ public class Image {
 
     public long getId() {
         return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getCaption() {
+        return caption;
+    }
+
+    public ArrayList<Comment> getComments() {
+        return comments;
+    }
+
+    public Set<String> getTags() {
+        return tags;
     }
 }

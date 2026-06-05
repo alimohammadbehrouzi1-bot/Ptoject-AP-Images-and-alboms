@@ -33,4 +33,8 @@ public class Comment {
             user.getLikedComment().add(this);
         }
     }
+
+    public String getComment() {
+        return comment;
+    }
 }

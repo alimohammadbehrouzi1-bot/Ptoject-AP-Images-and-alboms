@@ -1,6 +1,7 @@
 package Faz1;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class User {
     private String username;
@@ -11,15 +12,16 @@ public class User {
     private ArrayList<Album> albums;
     private ArrayList<Image> images;
     private Set<Long> likedImageIds;
-    private Set<Comment> likedComment ;
+    private Set<Comment> likedComment;
     private Set<Comment> yourComments = new HashSet<>();
+
     public User(String username, String password) throws Exception {
         this.username = username;
         setPassword(password);
         this.albums = new ArrayList<>();
         this.images = new ArrayList<>();
         this.likedImageIds = new HashSet<>();
-        this.likedComment  = new HashSet<>();
+        this.likedComment = new HashSet<>();
     }
 
     public User(String username, String password, String email) throws Exception {
@@ -38,6 +40,63 @@ public class User {
         setPhoneNumber(phoneNumber);
     }
 
+    public List<Image> searchByName(String word) {
+        String lowerword = word.toLowerCase();
+        List<Image> natige;
+        natige = this.images.stream()
+                .filter(image -> image.getName().toLowerCase().contains(lowerword))
+                .collect(Collectors.toList());
+        return natige;
+    }
+    public List<Image> searchByCaption(String word) {
+
+        String lowerword = word.toLowerCase();
+        List<Image> natige;
+        natige = this.images.stream()
+                .filter(image ->image.getCaption()!=null && image.getCaption().toLowerCase().contains(lowerword))
+                .collect(Collectors.toList());
+        return natige;
+    }
+    public List<Image> searchByComments(String word) {
+
+        String lowerword = word.toLowerCase();
+        List<Image> natige;
+        natige= this.images.stream()
+                .filter(image ->image.getComments() !=null && image.getComments().stream()
+                        .anyMatch(c -> c.getComment().toLowerCase().contains(lowerword)))
+                .collect(Collectors.toList());
+        return natige;
+    }
+    public List<Image> searchByTags(String word) {
+        String lowerword = word.toLowerCase();
+        List<Image> natige;
+        natige= this.images.stream()
+                .filter(image ->image.getTags() != null && image.getTags().stream()
+                        .anyMatch(c -> c.toLowerCase().contains(lowerword)))
+                .collect(Collectors.toList());
+        return natige;
+    }
+
+    public List<Image> searchAll(String word) throws NullPointerException {
+        if(word == null){
+            throw new NullPointerException("String is null");
+        }
+        if( word.startsWith("#")){
+            String withoutHashtak = word.substring(1);
+            return searchByTags(withoutHashtak);
+        }
+        List<Image> finalResult = new ArrayList<>();
+
+        List<List<Image>> allResults = Arrays.asList(searchByName(word), searchByCaption(word), searchByComments(word), searchByTags(word));
+        for (List<Image> inerList : allResults) {
+            for (Image image : inerList) {
+                if (!finalResult.contains(image)) {
+                    finalResult.add(image);
+                }
+            }
+        }
+        return finalResult;
+    }
 
     public String getUsername() {
         return username;
@@ -59,6 +118,7 @@ public class User {
     public ArrayList<Image> getImages() {
         return images;
     }
+
     public Set<Long> getLikedImageIds() {
         return likedImageIds;
     }
@@ -69,42 +129,48 @@ public class User {
 
     public void uploadImage(String name, String path, String caption, String date, Set<String> tags) throws Exception {
         Image image = new Image(this, path, name, date, caption, tags);
-        images.add(image) ;
-    }
-    public void uploadImage(String name , String path , String caption , String date) throws Exception {
-        Image image =new Image(this , path , name ,date , caption);
-        images.add(image);
-    }
-    public void uploadImage(String name , String path , String date ,Set<String> tags ) throws Exception {
-        Image image =new Image(this , path , name ,date , tags);
-        images.add(image);
-    }
-    public void uploadImage(String name , String path , String date) throws Exception {
-        Image image =new Image(this , path , name ,date);
         images.add(image);
     }
 
-    public void makeNewAlbum(String name){
-        Album album = new Album(this,name);
+    public void uploadImage(String name, String path, String caption, String date) throws Exception {
+        Image image = new Image(this, path, name, date, caption);
+        images.add(image);
+    }
+
+    public void uploadImage(String name, String path, String date, Set<String> tags) throws Exception {
+        Image image = new Image(this, path, name, date, tags);
+        images.add(image);
+    }
+
+    public void uploadImage(String name, String path, String date) throws Exception {
+        Image image = new Image(this, path, name, date);
+        images.add(image);
+    }
+
+    public void makeNewAlbum(String name) {
+        Album album = new Album(this, name);
         albums.add(album);
     }
-    public void makeNewAlbum(String name,Image ... imageid){
+
+    public void makeNewAlbum(String name, Image... imageid) {
         Set<Image> set = new HashSet<>();
         set.addAll(Arrays.asList(imageid));
-        Album album = new Album(this,name,set);
+        Album album = new Album(this, name, set);
         albums.add(album);
 
     }
-    public void addOrRemoveLikeImage(Image image){
+
+    public void addOrRemoveLikeImage(Image image) {
         image.addLikeAndRemoveLike(this);
     }
-    public void addOrRemoveLikeComment(Comment comment){
+
+    public void addOrRemoveLikeComment(Comment comment) {
         comment.addLikeAndRemoveComment(this);
     }
 
-    public void writeComment(Image image , String string , String time) throws Exception {
-        Comment comment =new Comment(this ,image , string ,time );
-        image.addComment(this , comment);
+    public void writeComment(Image image, String string, String time) throws Exception {
+        Comment comment = new Comment(this, image, string, time);
+        image.addComment(this, comment);
         yourComments.add(comment);
     }
 
@@ -150,7 +216,6 @@ public class User {
         } else
             throw new Exception("phone number lenght should be 11");
     }
-
 
 
     @Override
