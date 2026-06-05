@@ -1,5 +1,6 @@
 package Faz1;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -8,7 +9,7 @@ public class Image {
     private User owner ;
     private final long id ;
     private String path;
-    private  String date;
+    private LocalDateTime date;
     private  String name;
     private String caption;
     private Set <String> tags = new HashSet<>() ;
@@ -19,24 +20,24 @@ public class Image {
     private ArrayList<Comment>  comments = new ArrayList<>() ;
 
 
-    public Image( User owner ,String path, String name, String date ) throws Exception{
+    public Image( User owner ,String path, String name ) throws Exception{
         this.owner = owner ;
         this.path = path;
         this.name = name;
-        this.date = date;
+        this.date = LocalDateTime.now();
         this.id = makeRandomId();
         this.likes= 0;
     }
-    public Image( User owner ,String path, String name, String date , String caption) throws Exception{
-        this(owner, path, name, date);
+    public Image( User owner ,String path, String name , String caption) throws Exception{
+        this(owner, path, name);
         this.caption =caption ;
     }
-    public Image( User owner ,String path, String name, String date ,Set<String> tags)throws Exception{
-        this(owner, path, name, date);
+    public Image( User owner ,String path, String name ,Set<String> tags)throws Exception{
+        this(owner, path, name);
         this.tags =tags;
     }
-    public Image( User owner ,String path, String name, String date,String caption , Set<String> tags) throws Exception{
-        this(owner, path, name, date);
+    public Image( User owner ,String path, String name,String caption , Set<String> tags) throws Exception{
+        this(owner, path, name);
         this.caption = caption ;
         this.tags =tags;
     }

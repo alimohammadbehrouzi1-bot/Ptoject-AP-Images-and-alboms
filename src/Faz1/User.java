@@ -127,23 +127,23 @@ public class User {
         return likedComment;
     }
 
-    public void uploadImage(String name, String path, String caption, String date, Set<String> tags) throws Exception {
-        Image image = new Image(this, path, name, date, caption, tags);
+    public void uploadImage(String name, String path, String caption, Set<String> tags) throws Exception {
+        Image image = new Image(this, path, name, caption, tags);
         images.add(image);
     }
 
-    public void uploadImage(String name, String path, String caption, String date) throws Exception {
-        Image image = new Image(this, path, name, date, caption);
+    public void uploadImage(String name, String path, String caption) throws Exception {
+        Image image = new Image(this, path, name, caption);
         images.add(image);
     }
 
-    public void uploadImage(String name, String path, String date, Set<String> tags) throws Exception {
-        Image image = new Image(this, path, name, date, tags);
+    public void uploadImage(String name, String path, Set<String> tags) throws Exception {
+        Image image = new Image(this, path, name, tags);
         images.add(image);
     }
 
-    public void uploadImage(String name, String path, String date) throws Exception {
-        Image image = new Image(this, path, name, date);
+    public void uploadImage(String name, String path) throws Exception {
+        Image image = new Image(this, path, name);
         images.add(image);
     }
 
@@ -168,8 +168,8 @@ public class User {
         comment.addLikeAndRemoveComment(this);
     }
 
-    public void writeComment(Image image, String string, String time) throws Exception {
-        Comment comment = new Comment(this, image, string, time);
+    public void writeComment(Image image, String string) throws Exception {
+        Comment comment = new Comment(this, image, string);
         image.addComment(this, comment);
         yourComments.add(comment);
     }
