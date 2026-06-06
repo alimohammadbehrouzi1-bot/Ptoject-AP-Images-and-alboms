@@ -271,7 +271,7 @@ public class User {
                 "Phone    : " + (this.getPhoneNumber() != null ? this.getPhoneNumber() : "nothing")+
                 "Albums   : " + this.getAlbums().size()+
                 "Images   : " + this.getImages().size()+
-                "Banne?   : " + (this.banned ? "" : "Active")+
+                "Banne?   : " + (this.banned ? "Banned" : "Active")+
                 "--------------";
     }
 
