@@ -12,7 +12,7 @@ public class User {
 
     private ArrayList<Album> albums;
     private ArrayList<Image> images;
-    private Set<Long> likedImageIds;
+    private Set<Image> likedImages;
     private Set<Comment> likedComment;
     private Set<Comment> yourComments = new HashSet<>();
 
@@ -21,7 +21,7 @@ public class User {
         setPassword(password);
         this.albums = new ArrayList<>();
         this.images = new ArrayList<>();
-        this.likedImageIds = new HashSet<>();
+        this.likedImages = new HashSet<>();
         this.likedComment = new HashSet<>();
         this.banned=false;
     }
@@ -129,8 +129,8 @@ public class User {
         return images;
     }
 
-    public Set<Long> getLikedImageIds() {
-        return likedImageIds;
+    public Set<Image> getLikedImages() {
+        return likedImages;
     }
 
     public Set<Comment> getLikedComment() {
