@@ -4,20 +4,20 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class Album {
-    private final User owner ;
+    private final User owner;
     private String name;
-    private final long id ;
+    private final long id;
     private Set<Long> imagesId;
 
-    public Album(User owner,String name) {
+    public Album(User owner, String name) {
         this.owner = owner;
-        this.name=name;
+        this.name = name;
         this.imagesId = new HashSet<>();
         this.id = makeRandomId();
     }
 
 
-    public Album(User owner,String name, Set<Image> images) {
+    public Album(User owner, String name, Set<Image> images) {
         this.owner = owner;
         this.name = name;
         this.imagesId = new HashSet<>();
@@ -28,22 +28,22 @@ public class Album {
         }
     }
 
-    public void addImageToAlbumViaImage(Image image){
+    public void addImageToAlbumViaImage(Image image) {
         imagesId.add(image.getId());
 
     }
-    public void removeImageFromAlbumViaImage(Image image){
+    public void removeImageFromAlbumViaImage(Image image) {
         imagesId.remove(image.getId());
     }
-    public void addImageToAlbum(Image... images){
+    public void addImageToAlbum(Image... images) {
         List<Image> list = Arrays.stream(images).distinct().collect(Collectors.toList());
-        list.forEach(a->imagesId.add(a.getId()));
-        list.forEach(a->a.addNewAlbumViaAlbum(this));
+        list.forEach(a -> imagesId.add(a.getId()));
+        list.forEach(a -> a.addNewAlbumViaAlbum(this));
     }
-    public void removeImageFromAlbum(Image... images){
+    public void removeImageFromAlbum(Image... images) {
         List<Image> list = Arrays.stream(images).distinct().collect(Collectors.toList());
-        list.forEach(a->imagesId.remove(a.getId()));
-        list.forEach(a->a.removeAlbumViaAlbum(this));
+        list.forEach(a -> imagesId.remove(a.getId()));
+        list.forEach(a -> a.removeAlbumViaAlbum(this));
     }
 
     public boolean moveImagesToAnotherAlbum(Album destAlbum, Image... images) {
@@ -53,7 +53,7 @@ public class Album {
             list.forEach(a -> a.removeFromAlbum(this));
             list.forEach(a -> a.addNewAlbum(destAlbum));
         }
-        return check ;
+        return check;
     }
     public long getId() {
         return id;
