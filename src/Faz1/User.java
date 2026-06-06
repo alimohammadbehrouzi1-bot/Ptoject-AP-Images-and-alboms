@@ -48,40 +48,43 @@ public class User {
                 .collect(Collectors.toList());
         return natige;
     }
+
     public List<Image> searchByCaption(String word) {
 
         String lowerword = word.toLowerCase();
         List<Image> natige;
         natige = this.images.stream()
-                .filter(image ->image.getCaption()!=null && image.getCaption().toLowerCase().contains(lowerword))
+                .filter(image -> image.getCaption() != null && image.getCaption().toLowerCase().contains(lowerword))
                 .collect(Collectors.toList());
         return natige;
     }
+
     public List<Image> searchByComments(String word) {
 
         String lowerword = word.toLowerCase();
         List<Image> natige;
-        natige= this.images.stream()
-                .filter(image ->image.getComments() !=null && image.getComments().stream()
+        natige = this.images.stream()
+                .filter(image -> image.getComments() != null && image.getComments().stream()
                         .anyMatch(c -> c.getComment().toLowerCase().contains(lowerword)))
                 .collect(Collectors.toList());
         return natige;
     }
+
     public List<Image> searchByTags(String word) {
         String lowerword = word.toLowerCase();
         List<Image> natige;
-        natige= this.images.stream()
-                .filter(image ->image.getTags() != null && image.getTags().stream()
+        natige = this.images.stream()
+                .filter(image -> image.getTags() != null && image.getTags().stream()
                         .anyMatch(c -> c.toLowerCase().contains(lowerword)))
                 .collect(Collectors.toList());
         return natige;
     }
 
     public List<Image> searchAll(String word) throws NullPointerException {
-        if(word == null){
+        if (word == null) {
             throw new NullPointerException("String is null");
         }
-        if( word.startsWith("#")){
+        if (word.startsWith("#")) {
             String withoutHashtak = word.substring(1);
             return searchByTags(withoutHashtak);
         }
@@ -152,9 +155,9 @@ public class User {
         albums.add(album);
     }
 
-    public void makeNewAlbum(String name, Image... imageid) {
+    public void makeNewAlbum(String name, Image... image) {
         Set<Image> set = new HashSet<>();
-        set.addAll(Arrays.asList(imageid));
+        set.addAll(Arrays.asList(image));
         Album album = new Album(this, name, set);
         albums.add(album);
 
@@ -215,6 +218,25 @@ public class User {
                 throw new Exception("phone number should start with 98");
         } else
             throw new Exception("phone number lenght should be 11");
+    }
+
+    public void deleteAlbum(Album album) throws Exception {
+
+        if (album == null) {
+            throw new Exception("album is null");
+        }
+        if (albums.contains(album)) {
+            if (!album.isEmpty()) {
+                throw new Exception("Album is not empty. Please remove or move the images first.");
+            }
+            this.albums.remove(album);
+        }
+    }
+    public void deleteImage(Image image) throws Exception{
+        for(Album album: image.getAlbums()){
+            album.removeImageFromAlbumViaImage(image);
+        }
+        images.remove(image);
     }
 
 

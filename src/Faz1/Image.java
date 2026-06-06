@@ -13,7 +13,7 @@ public class Image {
     private  String name;
     private String caption;
     private Set <String> tags = new HashSet<>() ;
-    private Set <Long> albumIds = new HashSet<>() ;
+    private Set <Album> albums = new HashSet<>() ;
     private Set <User> usersWhoLiked = new HashSet<>();
     private long likes;
 
@@ -69,21 +69,21 @@ public class Image {
     }
 
 
-    public void addNewAlbum(Album... albums) {
-        List<Album> list = Arrays.stream(albums).distinct().collect(Collectors.toList());
-        list.forEach(a -> albumIds.add(a.getId()));
+    public void addNewAlbum(Album... albumss) {
+        List<Album> list = Arrays.stream(albumss).distinct().collect(Collectors.toList());
+        list.forEach(a -> albums.add(a));
         list.forEach(a -> a.addImageToAlbumViaImage(this));
     }
-    public void removeFromAlbum(Album... albums){
-        List<Album> list = Arrays.stream(albums).distinct().collect(Collectors.toList());
-        list.forEach(a-> albumIds.remove(a.getId()));
+    public void removeFromAlbum(Album... albumss){
+        List<Album> list = Arrays.stream(albumss).distinct().collect(Collectors.toList());
+        list.forEach(a-> albums.remove(a));
         list.forEach(a->a.removeImageFromAlbumViaImage(this));
     }
     public void addNewAlbumViaAlbum(Album album){
-        albumIds.add(album.getId());
+        albums.add(album);
     }
     public void removeAlbumViaAlbum(Album album){
-        albumIds.remove(album.getId());
+        albums.remove(album);
     }
 
     public void addComment(User user,Comment comment){
@@ -121,5 +121,9 @@ public class Image {
 
     public Set<String> getTags() {
         return tags;
+    }
+
+    public Set<Album> getAlbums() {
+        return albums;
     }
 }
