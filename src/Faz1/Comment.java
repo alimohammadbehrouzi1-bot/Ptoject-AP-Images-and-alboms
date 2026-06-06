@@ -1,6 +1,7 @@
 package Faz1;
 
 import java.lang.reflect.Array;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -12,13 +13,15 @@ public class Comment {
     private User owner ;
     private Set<User> usersWhoLiked =new HashSet<>() ;
     private long likes ;
+    private LocalDateTime date;
 
-    public Comment(User user , Image image ,String comment, String date) throws Exception {
+    public Comment(User user , Image image ,String comment) throws Exception {
         owner = user ;
         this.image =image ;
         if (comment.length() > 1000)
             throw new Exception("caption should be under 1000 charecter");
         else this.comment = comment;
+        date=LocalDateTime.now();
     }
 
     public void addLikeAndRemoveComment(User user){
@@ -32,5 +35,9 @@ public class Comment {
             likes++;
             user.getLikedComment().add(this);
         }
+    }
+
+    public String getComment() {
+        return comment;
     }
 }

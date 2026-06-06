@@ -1,5 +1,6 @@
 package Faz1;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -8,40 +9,36 @@ public class Image {
     private User owner ;
     private final long id ;
     private String path;
-    private  String date;
+    private LocalDateTime date;
     private  String name;
     private String caption;
-    private Set <String> tags ;
-    private Set <Long> albumIds = new HashSet<>() ;
+    private Set <String> tags = new HashSet<>() ;
+    private Set <Album> albums = new HashSet<>() ;
     private Set <User> usersWhoLiked = new HashSet<>();
-    private long likes;
+    private Set <User> userWhoComment = new HashSet<>();
 
     private ArrayList<Comment>  comments = new ArrayList<>() ;
 
 
-    public Image( User owner ,String path, String name, String date ) throws Exception{
+    public Image( User owner ,String path, String name ) throws Exception{
         this.owner = owner ;
         this.path = path;
         this.name = name;
-        this.date = date;
+        this.date = LocalDateTime.now();
         this.id = makeRandomId();
-        this.likes= 0;
     }
-    public Image( User owner ,String path, String name, String date , String caption) throws Exception{
-        super();
-        this.id = makeRandomId();
+    public Image( User owner ,String path, String name , String caption) throws Exception{
+        this(owner, path, name);
         this.caption =caption ;
     }
-    public Image( User owner ,String path, String name, String date ,Set<String> tags){
-        super();
-        this.id = makeRandomId();
-        this.tags =new HashSet<>(tags);
+    public Image( User owner ,String path, String name ,Set<String> tags)throws Exception{
+        this(owner, path, name);
+        this.tags =tags;
     }
-    public Image( User owner ,String path, String name, String date,String caption , Set<String> tags) throws Exception{
-        super();
-        this.id = makeRandomId();
+    public Image( User owner ,String path, String name,String caption , Set<String> tags) throws Exception{
+        this(owner, path, name);
         this.caption = caption ;
-        this.tags =new HashSet<>(tags);
+        this.tags =tags;
     }
     public long makeRandomId() {
         Random random = new Random();
@@ -71,41 +68,60 @@ public class Image {
     }
 
 
-    public void addNewAlbum(Album... albums) {
-        List<Album> list = Arrays.stream(albums).distinct().collect(Collectors.toList());
-        list.forEach(a -> albumIds.add(a.getId()));
+    public void addNewAlbum(Album... albumss) {
+        List<Album> list = Arrays.stream(albumss).distinct().collect(Collectors.toList());
+        list.forEach(a -> albums.add(a));
         list.forEach(a -> a.addImageToAlbumViaImage(this));
     }
-    public void removeFromAlbum(Album... albums){
-        List<Album> list = Arrays.stream(albums).distinct().collect(Collectors.toList());
-        list.forEach(a-> albumIds.remove(a.getId()));
+    public void removeFromAlbum(Album... albumss){
+        List<Album> list = Arrays.stream(albumss).distinct().collect(Collectors.toList());
+        list.forEach(a-> albums.remove(a));
         list.forEach(a->a.removeImageFromAlbumViaImage(this));
     }
     public void addNewAlbumViaAlbum(Album album){
-        albumIds.add(album.getId());
+        albums.add(album);
     }
     public void removeAlbumViaAlbum(Album album){
-        albumIds.remove(album.getId());
+        albums.remove(album);
     }
 
     public void addComment(User user,Comment comment){
         comments.add(comment);
+        userWhoComment.add(user);
     }
 
     public void addLikeAndRemoveLike(User user){
         if(usersWhoLiked.contains(user)){
-            likes--;
             usersWhoLiked.remove(user);
-            user.getLikedImageIds().remove(this.id);
+            user.getLikedImages().remove(this);
         }
         else{
             usersWhoLiked.add(user);
-            likes++;
-            user.getLikedImageIds().add(this.id);
+            user.getLikedImages().add(this);
         }
     }
 
     public long getId() {
         return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getCaption() {
+        return caption;
+    }
+
+    public ArrayList<Comment> getComments() {
+        return comments;
+    }
+
+    public Set<String> getTags() {
+        return tags;
+    }
+
+    public Set<Album> getAlbums() {
+        return albums;
     }
 }
