@@ -1,15 +1,15 @@
 package ServiesFaz1;
 
 public class IsValid {
-    isValidEmail(){
+    public void isValidEmail(){
 
     }
 
-    isValidPassword(){
+    public void isValidPassword(){
 
     }
 
-    isValidPhoneNumber(){
+    public void isValidPhoneNumber(){
 
     }
 }
