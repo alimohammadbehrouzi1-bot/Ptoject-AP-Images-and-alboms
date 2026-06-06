@@ -8,6 +8,7 @@ public class User {
     private String password;
     private String email;
     private Long phoneNumber;
+    private boolean banned;
 
     private ArrayList<Album> albums;
     private ArrayList<Image> images;
@@ -22,6 +23,12 @@ public class User {
         this.images = new ArrayList<>();
         this.likedImageIds = new HashSet<>();
         this.likedComment = new HashSet<>();
+        this.banned=false;
+    }
+    private void checkBanned() throws Exception {
+        if (banned){
+            throw new Exception("User is banned.");
+        }
     }
 
     public User(String username, String password, String email) throws Exception {
@@ -131,31 +138,37 @@ public class User {
     }
 
     public void uploadImage(String name, String path, String caption, Set<String> tags) throws Exception {
+        checkBanned();
         Image image = new Image(this, path, name, caption, tags);
         images.add(image);
     }
 
     public void uploadImage(String name, String path, String caption) throws Exception {
+        checkBanned();
         Image image = new Image(this, path, name, caption);
         images.add(image);
     }
 
     public void uploadImage(String name, String path, Set<String> tags) throws Exception {
+        checkBanned();
         Image image = new Image(this, path, name, tags);
         images.add(image);
     }
 
     public void uploadImage(String name, String path) throws Exception {
+        checkBanned();
         Image image = new Image(this, path, name);
         images.add(image);
     }
 
-    public void makeNewAlbum(String name) {
+    public void makeNewAlbum(String name) throws Exception{
+        checkBanned();
         Album album = new Album(this, name);
         albums.add(album);
     }
 
-    public void makeNewAlbum(String name, Image... image) {
+    public void makeNewAlbum(String name, Image... image) throws Exception{
+        checkBanned();
         Set<Image> set = new HashSet<>();
         set.addAll(Arrays.asList(image));
         Album album = new Album(this, name, set);
@@ -163,15 +176,18 @@ public class User {
 
     }
 
-    public void addOrRemoveLikeImage(Image image) {
+    public void addOrRemoveLikeImage(Image image) throws Exception{
+        checkBanned();
         image.addLikeAndRemoveLike(this);
     }
 
-    public void addOrRemoveLikeComment(Comment comment) {
+    public void addOrRemoveLikeComment(Comment comment) throws Exception{
+        checkBanned();
         comment.addLikeAndRemoveComment(this);
     }
 
     public void writeComment(Image image, String string) throws Exception {
+        checkBanned();
         Comment comment = new Comment(this, image, string);
         image.addComment(this, comment);
         yourComments.add(comment);
@@ -221,7 +237,7 @@ public class User {
     }
 
     public void deleteAlbum(Album album) throws Exception {
-
+        checkBanned();
         if (album == null) {
             throw new Exception("album is null");
         }
@@ -233,6 +249,7 @@ public class User {
         }
     }
     public void deleteImage(Image image) throws Exception{
+        checkBanned();
         for(Album album: image.getAlbums()){
             album.removeImageFromAlbumViaImage(image);
         }
