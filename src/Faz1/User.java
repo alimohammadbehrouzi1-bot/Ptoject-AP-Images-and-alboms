@@ -23,12 +23,8 @@ public class User {
         this.images = new ArrayList<>();
         this.likedImages = new HashSet<>();
         this.likedComment = new HashSet<>();
-        this.banned=false;
-    }
-    private void checkBanned() throws Exception {
-        if (banned){
-            throw new Exception("User is banned.");
-        }
+        this.banned = false;
+        Admin.allUsers.add(this);
     }
 
     public User(String username, String password, String email) throws Exception {
@@ -45,6 +41,12 @@ public class User {
         this(username, password);
         setEmail(email);
         setPhoneNumber(phoneNumber);
+    }
+
+    private void checkBanned() throws Exception {
+        if (banned) {
+            throw new Exception("User is banned.");
+        }
     }
 
     public List<Image> searchByName(String word) {
@@ -161,13 +163,13 @@ public class User {
         images.add(image);
     }
 
-    public void makeNewAlbum(String name) throws Exception{
+    public void makeNewAlbum(String name) throws Exception {
         checkBanned();
         Album album = new Album(this, name);
         albums.add(album);
     }
 
-    public void makeNewAlbum(String name, Image... image) throws Exception{
+    public void makeNewAlbum(String name, Image... image) throws Exception {
         checkBanned();
         Set<Image> set = new HashSet<>();
         set.addAll(Arrays.asList(image));
@@ -176,12 +178,12 @@ public class User {
 
     }
 
-    public void addOrRemoveLikeImage(Image image) throws Exception{
+    public void addOrRemoveLikeImage(Image image) throws Exception {
         checkBanned();
         image.addLikeAndRemoveLike(this);
     }
 
-    public void addOrRemoveLikeComment(Comment comment) throws Exception{
+    public void addOrRemoveLikeComment(Comment comment) throws Exception {
         checkBanned();
         comment.addLikeAndRemoveComment(this);
     }
@@ -248,14 +250,34 @@ public class User {
             this.albums.remove(album);
         }
     }
-    public void deleteImage(Image image) throws Exception{
+
+    public void deleteImage(Image image) throws Exception {
         checkBanned();
-        for(Album album: image.getAlbums()){
+        for (Album album : image.getAlbums()) {
             album.removeImageFromAlbumViaImage(image);
         }
         images.remove(image);
     }
 
+    public void setBanned(boolean banned) {
+        this.banned = banned;
+    }
+
+    @Override
+    public String toString(){
+        return "---------------"+
+                "Username : " + this.getUsername()+
+                "Email    : " + (this.getEmail() != null ? getEmail() : "nothing")+
+                "Phone    : " + (this.getPhoneNumber() != null ? this.getPhoneNumber() : "nothing")+
+                "Albums   : " + this.getAlbums().size()+
+                "Images   : " + this.getImages().size()+
+                "Banne?   : " + (this.banned ? "" : "Active")+
+                "--------------";
+    }
+
+    public boolean isBanned() {
+        return banned;
+    }
 
     @Override
     public boolean equals(Object object) {
