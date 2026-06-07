@@ -75,6 +75,23 @@ public class User {
             setPassword(newPassword);
         }
     }
+    public void editUserInformation() throws Exception {
+        Scanner scanner = new Scanner(System.in);
+        System.out.println(" 1_Username , 2_Password , 3_Email , 4_PhoneNumber "  );
+        int parametr = scanner.nextInt();
+        switch (parametr){
+            case 1:
+                setUsername(scanner.next());
+                break;
+            case 2:
+                changePassword(scanner.next(),scanner.next(),scanner.next());
+                break;
+            case 3:
+                setEmail(scanner.next());
+            case 4:
+                setPhoneNumber(scanner.nextLong());
+        }
+    }
 
     private void checkBanned() throws Exception {
         if (banned) {
