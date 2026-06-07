@@ -88,8 +88,10 @@ public class User {
                 break;
             case 3:
                 setEmail(scanner.next());
+                break;
             case 4:
                 setPhoneNumber(scanner.nextLong());
+                break;
         }
     }
 
@@ -315,13 +317,12 @@ public class User {
     public void deleteAlbum(Album album) throws Exception {
         checkBanned();
         if (album == null) {
+            albums.remove(album);
             throw new Exception("album is null");
         }
         if (albums.contains(album)) {
-            if (!album.getImages().isEmpty()) {
-                throw new Exception("Album is not empty. Please remove or move the images first.");
-            }
             this.albums.remove(album);
+            album.getImages().stream().forEach(a->a.getAlbums().remove(album));
         }
     }
 

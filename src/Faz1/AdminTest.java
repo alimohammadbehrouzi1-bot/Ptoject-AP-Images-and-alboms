@@ -44,7 +44,7 @@ public class AdminTest {
 
 
     @Test
-    void changePasswordSuccessfully() throws Exception {
+    void changePassword() throws Exception {
 
         admin.ChangePassword("admin", "1234", "newPass");
 
