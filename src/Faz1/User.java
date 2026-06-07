@@ -33,23 +33,20 @@ public class User {
     public User(String username, String password, String email) throws Exception {
         this(username, password);
         setEmail(email);
-        Admin.allUsers.add(this);
-        logIn(username , password);
+
     }
 
     public User(String username, String password, Long phoneNumber) throws Exception {
         this(username, password);
         setPhoneNumber(phoneNumber);
-        Admin.allUsers.add(this);
-        logIn(username , password);
+
     }
 
     public User(String username, String password, String email, Long phoneNumber) throws Exception {
         this(username, password);
         setEmail(email);
         setPhoneNumber(phoneNumber);
-        Admin.allUsers.add(this);
-        logIn(username , password);
+
     }
     public void logIn(String username , String password){
         Set<User> user =Admin.allUsers.stream().filter(a-> a.username.equals(username)).collect(Collectors.toSet()) ;
@@ -317,7 +314,6 @@ public class User {
     public void deleteAlbum(Album album) throws Exception {
         checkBanned();
         if (album == null) {
-            albums.remove(album);
             throw new Exception("album is null");
         }
         if (albums.contains(album)) {

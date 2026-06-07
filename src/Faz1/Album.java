@@ -83,4 +83,9 @@ public class Album {
 
         return idCreated;
     }
+
+    public String getName() {
+        return name;
+    }
+
 }

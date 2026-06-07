@@ -22,11 +22,7 @@ public class UserTest {
 
     @Test
     void createUserWithEmailSuccessfully() throws Exception {
-        User user = new User(
-                "aliMohammad",
-                "Password1",
-                "ali@gmail.com"
-        );
+        User user = new User("aliMohammad", "Password1", "ali@gmail.com");
 
         assertEquals("ali@gmail.com", user.getEmail());
     }
@@ -35,32 +31,20 @@ public class UserTest {
     void duplicateUsernameShouldThrowException() throws Exception {
         new User("mahan", "Password1");
 
-        Exception exception = assertThrows(
-                Exception.class,
-                () -> new User("mahan", "Password2")
-        );
+        Exception exception = assertThrows(Exception.class, () -> new User("mahan", "Password2"));
 
         assertEquals("username is used", exception.getMessage());
     }
 
     @Test
     void weakPasswordShouldThrowException() {
-        Exception exception = assertThrows(
-                Exception.class,
-                () -> new User("mahan", "1234")
-        );
+        Exception exception = assertThrows(Exception.class, () -> new User("mahan", "1234"));
 
         assertTrue(exception.getMessage().contains("Password must be at least 8 characters."));
 
-        Exception exception1 = assertThrows(
-                Exception.class,
-                () -> new User("mahan", "mahan123A")
-        );
+        Exception exception1 = assertThrows(Exception.class, () -> new User("mahan", "mahan123A"));
 
-        assertEquals(
-                "Password must not contain username.",
-                exception1.getMessage()
-        );
+        assertEquals("Password must not contain username.", exception1.getMessage());
     }
 
     @Test
@@ -73,10 +57,7 @@ public class UserTest {
 
         User user1 = new User("Ali", "Password123");
 
-        Exception exception = assertThrows(
-                Exception.class,
-                () -> user1.setEmail("Ali@yahoo.com")
-        );
+        Exception exception = assertThrows(Exception.class, () -> user1.setEmail("Ali@yahoo.com"));
 
         assertEquals("Email is not valid", exception.getMessage());
     }
@@ -87,17 +68,11 @@ public class UserTest {
 
         user.setPhoneNumber(989123456789L);
 
-        assertEquals(
-                989123456789L,
-                user.getPhoneNumber()
-        );
+        assertEquals(989123456789L, user.getPhoneNumber());
 
         User user1 = new User("aliMohammad", "Password12");
 
-        Exception exception = assertThrows(
-                Exception.class,
-                () -> user1.setPhoneNumber(9123456789L)
-        );
+        Exception exception = assertThrows(Exception.class, () -> user1.setPhoneNumber(9123456789L));
 
         assertNotNull(exception);
     }
@@ -106,25 +81,18 @@ public class UserTest {
     void changePassword() throws Exception {
         User user = new User("mahan", "Password1");
 
-        user.changePassword(
-                "mahan",
-                "Password1",
-                "NewPass12"
-        );
+        user.changePassword("mahan", "Password1", "NewPass12");
 
         user.logIn("mahan", "NewPass12");
         user.uploadImage("img", "/test");
-        assertEquals(1 , user.getImages().size());
+        assertEquals(1, user.getImages().size());
 
 
         User user1 = new User("ali", "Password123");
 
         user1.logIn("ali", "wrongPass");
 
-        Exception exception2 = assertThrows(
-                Exception.class,
-                () -> user1.uploadImage("img", "/test")
-        );
+        Exception exception2 = assertThrows(Exception.class, () -> user1.uploadImage("img", "/test"));
 
         assertEquals("first Log In", exception2.getMessage());
     }
@@ -133,25 +101,17 @@ public class UserTest {
     void uploadImage() throws Exception {
         User user = new User("aliMohammad", "Password1");
 
-        user.uploadImage(
-                "nature",
-                "/images/nature.jpg"
-        );
+        user.uploadImage("nature", "/images/nature.jpg");
 
-        assertEquals(
-                1,
-                user.getImages().size()
-        );
+        assertEquals(1, user.getImages().size());
         User user1 = new User("ali", "Password12");
 
         user1.setBanned(true);
 
-        Exception exception = assertThrows(
-                Exception.class,
-                () -> user1.uploadImage("nature", "/images/nature.jpj")
-        );
+        Exception exception = assertThrows(Exception.class, () -> user1.uploadImage("nature", "/images/nature.jpj"));
         assertEquals("User is banned.", exception.getMessage());
     }
+
     @Test
     void editInformation() throws Exception {
     }
