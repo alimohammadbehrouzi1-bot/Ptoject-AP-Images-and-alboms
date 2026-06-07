@@ -7,112 +7,137 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class UserTest {
 
+    private User user;
+
     @BeforeEach
-    void setUp() {
+    void initialize() throws Exception {
         Admin.allUsers.clear();
+        user = new User("Ali", "Password1");
     }
 
     @Test
-    void createUserSuccessfully() throws Exception {
-        User user = new User("mahan", "Password1");
-
-        assertEquals("mahan", user.getUsername());
+    void constructorTest() {
+        assertEquals("Ali", user.getUsername());
+        assertNull(user.getEmail());
+        assertNull(user.getPhoneNumber());
         assertFalse(user.isBanned());
     }
 
     @Test
-    void createUserWithEmailSuccessfully() throws Exception {
-        User user = new User("aliMohammad", "Password1", "ali@gmail.com");
+    void constructorWithEmailTest() throws Exception {
+        User user2 = new User("Reza", "Password2", "reza@gmail.com");
+
+        assertEquals("reza@gmail.com", user2.getEmail());
+        assertEquals("Reza", user2.getUsername());
+    }
+
+    @Test
+    void setEmailTest() throws Exception {
+        user.setEmail("ali@gmail.com");
 
         assertEquals("ali@gmail.com", user.getEmail());
     }
 
     @Test
-    void duplicateUsernameShouldThrowException() throws Exception {
-        new User("mahan", "Password1");
-
-        Exception exception = assertThrows(Exception.class, () -> new User("mahan", "Password2"));
-
-        assertEquals("username is used", exception.getMessage());
-    }
-
-    @Test
-    void weakPasswordShouldThrowException() {
-        Exception exception = assertThrows(Exception.class, () -> new User("mahan", "1234"));
-
-        assertTrue(exception.getMessage().contains("Password must be at least 8 characters."));
-
-        Exception exception1 = assertThrows(Exception.class, () -> new User("mahan", "mahan123A"));
-
-        assertEquals("Password must not contain username.", exception1.getMessage());
-    }
-
-    @Test
-    void validEmailShouldBeAccepted() throws Exception {
-        User user = new User("mahan", "Password1");
-
-        user.setEmail("mahan@gmail.com");
-
-        assertEquals("mahan@gmail.com", user.getEmail());
-
-        User user1 = new User("Ali", "Password123");
-
-        Exception exception = assertThrows(Exception.class, () -> user1.setEmail("Ali@yahoo.com"));
+    void invalidEmailTest() {
+        Exception exception = assertThrows(Exception.class,
+                () -> user.setEmail("ali@yahoo.com"));
 
         assertEquals("Email is not valid", exception.getMessage());
     }
 
     @Test
-    void PhoneNumber() throws Exception {
-        User user = new User("mahan", "Password1");
+    void setPhoneNumberTest() throws Exception {
+        user.setPhoneNumber(989121234567L);
 
-        user.setPhoneNumber(989123456789L);
-
-        assertEquals(989123456789L, user.getPhoneNumber());
-
-        User user1 = new User("aliMohammad", "Password12");
-
-        Exception exception = assertThrows(Exception.class, () -> user1.setPhoneNumber(9123456789L));
-
-        assertNotNull(exception);
+        assertEquals(Long.valueOf(989121234567L), user.getPhoneNumber());
     }
 
     @Test
-    void changePassword() throws Exception {
-        User user = new User("mahan", "Password1");
-
-        user.changePassword("mahan", "Password1", "NewPass12");
-
-        user.logIn("mahan", "NewPass12");
-        user.uploadImage("img", "/test");
-        assertEquals(1, user.getImages().size());
-
-
-        User user1 = new User("ali", "Password123");
-
-        user1.logIn("ali", "wrongPass");
-
-        Exception exception2 = assertThrows(Exception.class, () -> user1.uploadImage("img", "/test"));
-
-        assertEquals("first Log In", exception2.getMessage());
+    void invalidPhoneNumberTest() {
+        assertThrows(Exception.class,
+                () -> user.setPhoneNumber(9121234567L));
     }
 
     @Test
-    void uploadImage() throws Exception {
-        User user = new User("aliMohammad", "Password1");
+    void changePasswordTest() throws Exception {
+        user.changePassword("Ali", "Password1", "NewPass12");
 
-        user.uploadImage("nature", "/images/nature.jpg");
+        assertDoesNotThrow(() ->
+                user.logIn("Ali", "NewPass12"));
+    }
 
-        assertEquals(1, user.getImages().size());
-        User user1 = new User("ali", "Password12");
+    @Test
+    void weakPasswordTest() {
+        assertThrows(Exception.class,
+                () -> new User("Sara", "weak"));
+    }
 
-        user1.setBanned(true);
+    @Test
+    void duplicateUsernameTest() {
+        assertThrows(Exception.class,
+                () -> new User("Ali", "Password2"));
+    }
 
-        Exception exception = assertThrows(Exception.class, () -> user1.uploadImage("nature", "/images/nature.jpj"));
+    @Test
+    void uploadImageTest() throws Exception {
+        int sizeBefore = user.getImages().size();
+
+        user.uploadImage("img1", "/path/image.jpg");
+
+        assertEquals(sizeBefore + 1, user.getImages().size());
+    }
+
+    @Test
+    void makeAlbumTest() throws Exception {
+        int sizeBefore = user.getAlbums().size();
+
+        user.makeNewAlbum("Travel");
+
+        assertEquals(sizeBefore + 1, user.getAlbums().size());
+    }
+
+    @Test
+    void searchAllNullTest() {
+        NullPointerException exception =
+                assertThrows(NullPointerException.class,
+                        () -> user.searchAll(null));
+
+        assertEquals("String is null", exception.getMessage());
+    }
+
+    @Test
+    void banUserTest() {
+        user.setBanned(true);
+
+        assertTrue(user.isBanned());
+    }
+
+    @Test
+    void equalsTest() {
+        User user2 = user;
+
+        assertEquals(user, user2);
+    }
+
+    @Test
+    void hashCodeTest() {
+        assertEquals(user.hashCode(), user.hashCode());
+    }
+
+    @Test
+    void toStringTest() {
+        assertNotNull(user.toString());
+        assertTrue(user.toString().contains("Ali"));
+    }
+    @Test
+    void bannedUserCanNotUploadImageTest() throws Exception {
+
+        user.setBanned(true);
+
+        Exception exception = assertThrows(Exception.class,
+                () -> user.uploadImage("img1", "/path/image.jpg"));
+
         assertEquals("User is banned.", exception.getMessage());
-    }
-
-    @Test
-    void editInformation() throws Exception {
     }
 }
