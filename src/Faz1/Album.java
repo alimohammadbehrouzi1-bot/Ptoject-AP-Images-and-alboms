@@ -22,7 +22,6 @@ public class Album {
         this.name = name;
         this.images = new HashSet<>();
         this.id = makeRandomId();
-
         for (Image img : images) {
             img.addNewAlbum(this);
         }

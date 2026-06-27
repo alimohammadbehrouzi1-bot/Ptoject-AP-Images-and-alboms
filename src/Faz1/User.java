@@ -48,7 +48,7 @@ public class User {
         setPhoneNumber(phoneNumber);
 
     }
-    public void logIn(String username , String password){
+    public void logIn(String username , String password) {
         Set<User> user =Admin.allUsers.stream().filter(a-> a.username.equals(username)).collect(Collectors.toSet()) ;
         if (!user.isEmpty()){
             if (user.stream().anyMatch(a->a.password.equals(password))){
@@ -58,13 +58,18 @@ public class User {
             }
             else{ System.out.println("password is incorrect");
                   isLogged = false ;
-            return;
+                  return;
             }
         }
         else {System.out.println("username is incorrect");
               isLogged = false;
               return;
         }
+    }
+    public void logOut() throws Exception {
+        checkIsLogged();
+        isLogged = false;
+        System.out.println("Logged out successfully.");
     }
     public void changePassword(String username , String password , String newPassword) throws Exception {
         logIn(username, password);
@@ -73,6 +78,8 @@ public class User {
         }
     }
     public void editUserInformation() throws Exception {
+        checkIsLogged();
+        checkBanned();
         Scanner scanner = new Scanner(System.in);
         System.out.println(" 1_Username , 2_Password , 3_Email , 4_PhoneNumber "  );
         int parametr = scanner.nextInt();
@@ -235,7 +242,6 @@ public class User {
         set.addAll(Arrays.asList(image));
         Album album = new Album(this, name, set);
         albums.add(album);
-
     }
 
     public void addOrRemoveLikeImage(Image image) throws Exception {
