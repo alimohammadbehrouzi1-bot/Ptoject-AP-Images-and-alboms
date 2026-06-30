@@ -26,7 +26,7 @@ public class User {
         this.likedComment = new HashSet<>();
         this.banned = false;
         Admin.allUsers.add(this);
-        logIn(username , password);
+        logIn(username, password);
 
     }
 
@@ -48,47 +48,51 @@ public class User {
         setPhoneNumber(phoneNumber);
 
     }
-    public void logIn(String username , String password) {
-        Set<User> user =Admin.allUsers.stream().filter(a-> a.username.equals(username)).collect(Collectors.toSet()) ;
-        if (!user.isEmpty()){
-            if (user.stream().anyMatch(a->a.password.equals(password))){
+
+    public void logIn(String username, String password) {
+        Set<User> user = Admin.allUsers.stream().filter(a -> a.username.equals(username)).collect(Collectors.toSet());
+        if (!user.isEmpty()) {
+            if (user.stream().anyMatch(a -> a.password.equals(password))) {
                 System.out.println("log in sucsesfully");
-                isLogged = true ;
+                isLogged = true;
+                return;
+            } else {
+                System.out.println("password is incorrect");
+                isLogged = false;
                 return;
             }
-            else{ System.out.println("password is incorrect");
-                  isLogged = false ;
-                  return;
-            }
-        }
-        else {System.out.println("username is incorrect");
-              isLogged = false;
-              return;
+        } else {
+            System.out.println("username is incorrect");
+            isLogged = false;
+            return;
         }
     }
+
     public void logOut() throws Exception {
         checkIsLogged();
         isLogged = false;
         System.out.println("Logged out successfully.");
     }
-    public void changePassword(String username , String password , String newPassword) throws Exception {
+
+    public void changePassword(String username, String password, String newPassword) throws Exception {
         logIn(username, password);
-        if (isLogged){
+        if (isLogged) {
             setPassword(newPassword);
         }
     }
+
     public void editUserInformation() throws Exception {
         checkIsLogged();
         checkBanned();
         Scanner scanner = new Scanner(System.in);
-        System.out.println(" 1_Username , 2_Password , 3_Email , 4_PhoneNumber "  );
+        System.out.println(" 1_Username , 2_Password , 3_Email , 4_PhoneNumber ");
         int parametr = scanner.nextInt();
-        switch (parametr){
+        switch (parametr) {
             case 1:
                 setUsername(scanner.next());
                 break;
             case 2:
-                changePassword(scanner.next(),scanner.next(),scanner.next());
+                changePassword(scanner.next(), scanner.next(), scanner.next());
                 break;
             case 3:
                 setEmail(scanner.next());
@@ -104,8 +108,9 @@ public class User {
             throw new Exception("User is banned.");
         }
     }
-    private void checkIsLogged()throws Exception{
-        if (!isLogged){
+
+    private void checkIsLogged() throws Exception {
+        if (!isLogged) {
             throw new Exception("first Log In");
         }
     }
@@ -150,6 +155,13 @@ public class User {
         return natige;
     }
 
+    public List<Image> searchByDate(String date){
+        if (date == null || date.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return this.images.stream().filter(img -> img.getDate() != null && img.getDate().toString().contains(date)).collect(Collectors.toList());
+    }
+
     public List<Image> searchAll(String word) throws NullPointerException {
         if (word == null) {
             throw new NullPointerException("String is null");
@@ -160,7 +172,7 @@ public class User {
         }
         List<Image> finalResult = new ArrayList<>();
 
-        List<List<Image>> allResults = Arrays.asList(searchByName(word), searchByCaption(word), searchByComments(word), searchByTags(word));
+        List<List<Image>> allResults = Arrays.asList(searchByName(word), searchByCaption(word), searchByComments(word), searchByTags(word), searchByDate(word));
         for (List<Image> inerList : allResults) {
             for (Image image : inerList) {
                 if (!finalResult.contains(image)) {
@@ -324,7 +336,7 @@ public class User {
         }
         if (albums.contains(album)) {
             this.albums.remove(album);
-            album.getImages().stream().forEach(a->a.getAlbums().remove(album));
+            album.getImages().stream().forEach(a -> a.getAlbums().remove(album));
         }
     }
 
@@ -342,14 +354,14 @@ public class User {
 
 
     @Override
-    public String toString(){
-        return "---------------"+
-                "Username : " + this.getUsername()+
-                "Email    : " + (this.getEmail() != null ? getEmail() : "nothing")+
-                "Phone    : " + (this.getPhoneNumber() != null ? this.getPhoneNumber() : "nothing")+
-                "Albums   : " + this.getAlbums().size()+
-                "Images   : " + this.getImages().size()+
-                "Ban?   : " + (this.banned ? "Banned" : "Active")+
+    public String toString() {
+        return "---------------" +
+                "Username : " + this.getUsername() +
+                "Email    : " + (this.getEmail() != null ? getEmail() : "nothing") +
+                "Phone    : " + (this.getPhoneNumber() != null ? this.getPhoneNumber() : "nothing") +
+                "Albums   : " + this.getAlbums().size() +
+                "Images   : " + this.getImages().size() +
+                "Ban?   : " + (this.banned ? "Banned" : "Active") +
                 "--------------";
     }
 

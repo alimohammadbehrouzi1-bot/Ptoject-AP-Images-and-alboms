@@ -124,4 +124,8 @@ public class Image {
     public Set<Album> getAlbums() {
         return albums;
     }
+
+    public Object getDate() {
+        return date;
+    }
 }
