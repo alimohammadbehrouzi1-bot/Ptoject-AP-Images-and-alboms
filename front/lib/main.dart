@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'data_service.dart';
 import 'auth_screens.dart';
+import 'user_screens.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await DataService().init();
   runApp(const PhotoSocialApp());
 }
 
@@ -21,23 +25,11 @@ class PhotoSocialApp extends StatelessWidget {
           secondary: const Color(0xFF00C853),
           surface: Colors.white,
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black87,
-          elevation: 0,
-          centerTitle: true,
-          titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1A73E8),
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 52),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          ),
-        ),
       ),
-      home: const LoginScreen(),
+      // Check if someone is already logged in (for simulation)
+      home: DataService().currentUsername != null
+        ? MainNavigation(username: DataService().currentUsername!) 
+        : const LoginScreen(),
     );
   }
 }

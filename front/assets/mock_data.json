@@ -1,57 +1,31 @@
 {
+  "admins": [
+    {
+      "username": "admin",
+      "password": "Admin1234"
+    }
+  ],
   "users": [
     {
-      "username": "Ali_88",
+      "username": "ali",
+      "password": "Pass1234",
       "email": "ali@gmail.com",
-      "phoneNumber": "989123456789",
+      "phone": "989123456781",
       "isBanned": false,
       "albums": [
         {
-          "id": 1001,
-          "name": "Summer Trip",
+          "id": 101,
+          "name": "Nature",
           "images": [
             {
-              "id": 2001,
-              "name": "Sunset",
-              "caption": "Beautiful evening",
-              "tags": ["nature", "travel"],
-              "likes": 15,
+              "id": 1001,
+              "name": "Forest",
+              "caption": "Deep woods",
+              "tags": ["nature", "green"],
+              "likes": 2,
               "isLiked": false,
-              "date": "2023-06-15T18:30:00"
-            }
-          ]
-        }
-      ],
-      "standaloneImages": [
-        {
-          "id": 2002,
-          "name": "Profile Pic",
-          "caption": "New me",
-          "tags": ["me", "portrait"],
-          "likes": 50,
-          "isLiked": true,
-          "date": "2023-07-01T10:00:00"
-        }
-      ]
-    },
-    {
-      "username": "Sara_Dev",
-      "email": "sara@gmail.com",
-      "phoneNumber": "989123456788",
-      "isBanned": false,
-      "albums": [
-        {
-          "id": 1002,
-          "name": "Work",
-          "images": [
-            {
-              "id": 2003,
-              "name": "Office",
-              "caption": "Daily routine",
-              "tags": ["work", "office"],
-              "likes": 10,
-              "isLiked": false,
-              "date": "2023-08-15T09:30:00"
+              "date": "2023-10-01T12:00:00",
+              "comments": []
             }
           ]
         }
@@ -59,44 +33,44 @@
       "standaloneImages": []
     },
     {
-      "username": "John_Travel",
-      "email": "john@gmail.com",
-      "phoneNumber": "989123456787",
+      "username": "reza",
+      "password": "Pass1234",
+      "email": "reza@gmail.com",
+      "phone": "989123456782",
       "isBanned": false,
       "albums": [],
       "standaloneImages": [
         {
-          "id": 2004,
-          "name": "Mountains",
-          "caption": "Hiking day",
-          "tags": ["nature", "hiking"],
-          "likes": 85,
+          "id": 1002,
+          "name": "City Lights",
+          "caption": "Tehran at night",
+          "tags": ["city", "night"],
+          "likes": 5,
           "isLiked": false,
-          "date": "2023-09-05T12:00:00"
+          "date": "2023-10-05T20:00:00",
+          "comments": []
         }
       ]
-    }
-  ],
-  "explorePhotos": [
-    {
-      "id": 3001,
-      "name": "Eiffel Tower",
-      "ownerName": "Sara_Dev",
-      "caption": "Paris is magic",
-      "tags": ["paris", "vacation"],
-      "likes": 120,
-      "isLiked": false,
-      "date": "2023-10-10T12:00:00"
     },
     {
-      "id": 3002,
-      "name": "Bugatti Chiron",
-      "ownerName": "SuperCars",
-      "caption": "Speed beast",
-      "tags": ["cars", "fast"],
-      "likes": 500,
-      "isLiked": true,
-      "date": "2023-10-11T15:00:00"
+      "username": "sara",
+      "password": "Pass1234",
+      "email": "sara@gmail.com",
+      "phone": "989123456783",
+      "isBanned": false,
+      "albums": [],
+      "standaloneImages": [
+        {
+          "id": 1003,
+          "name": "Painting",
+          "caption": "My latest work",
+          "tags": ["art", "painting"],
+          "likes": 12,
+          "isLiked": false,
+          "date": "2023-10-10T15:00:00",
+          "comments": []
+        }
+      ]
     }
   ]
 }
