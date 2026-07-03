@@ -50,6 +50,11 @@ public class User {
     }
 
     public void logIn(String username, String password) {
+        if(isBanned()){
+            System.out.println("user is banned");
+            isLogged = false;
+            return;
+        }
         Set<User> user = Admin.allUsers.stream().filter(a -> a.username.equals(username)).collect(Collectors.toSet());
         if (!user.isEmpty()) {
             if (user.stream().anyMatch(a -> a.password.equals(password))) {
@@ -350,6 +355,13 @@ public class User {
 
     public void setBanned(boolean banned) {
         this.banned = banned;
+        if (banned) {
+            try {
+                logOut();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
 
