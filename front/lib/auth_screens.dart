@@ -25,12 +25,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _login(bool isAdmin) {
     if (_formKey.currentState!.validate()) {
+      final username = _usernameController.text;
+      
       if (isAdmin) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminDashboard()));
       } else {
         Navigator.pushReplacement(
           context, 
-          MaterialPageRoute(builder: (_) => MainNavigation(username: _usernameController.text))
+          MaterialPageRoute(builder: (_) => MainNavigation(username: username))
         );
       }
     }
