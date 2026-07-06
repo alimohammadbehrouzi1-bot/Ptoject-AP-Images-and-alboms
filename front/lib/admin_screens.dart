@@ -75,7 +75,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
             title: Text(u['username'], style: const TextStyle(fontWeight: FontWeight.bold)),
             trailing: Switch(
               value: !isB,
-              activeColor: Colors.blue,
+              activeThumbColor: Colors.blue,
               onChanged: (v) => _handleBanToggle(u['username']),
             ),
             onTap: () => _showUserDetail(u),

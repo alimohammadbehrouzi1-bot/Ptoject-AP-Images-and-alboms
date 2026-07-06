@@ -96,7 +96,7 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
   final ScrollController _scrollController = ScrollController();
   FileItem? _currentAlbum;
   bool _isLastPage = false;
-  int _pageSize = 10;
+  static const int _pageSize = 10;
 
   @override
   void initState() {
@@ -230,7 +230,7 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
   String _searchQ = "";
   final Set<String> _filters = {};
   bool _isLastPage = false;
-  int _pageSize = 10;
+  static const int _pageSize = 10;
 
   @override
   void initState() {
@@ -341,7 +341,26 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
                 bool sel = _selectedIds.contains(item.id);
                 return InkWell(
                   onLongPress: () => _toggle(item.id),
-                  onTap: () { if (_isSelectionMode) _toggle(item.id); else if (item.isFolder) setState(() { _currentAlbum = item; _refresh(); }); else Navigator.push(context, MaterialPageRoute(builder: (_) => ImageDetailScreen(item: item, username: widget.username))); },
+                  onTap: () {
+        if (_isSelectionMode) {
+          _toggle(item.id);
+        } else if (item.isFolder) {
+          setState(() {
+            _currentAlbum = item;
+            _refresh();
+          });
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ImageDetailScreen(
+                item: item,
+                username: widget.username,
+              ),
+            ),
+          );
+        }
+      },
                   child: Column(
                     children: [
                       Expanded(
@@ -382,7 +401,41 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
   Widget _btn(IconData i, String l, Color c, VoidCallback t) => Expanded(child: InkWell(onTap: t, child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: c.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(15)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(i, color: c, size: 20), const SizedBox(width: 8), Text(l, style: TextStyle(color: c, fontWeight: FontWeight.bold))]))));
 
   void _showFilterDialog() {
-    showDialog(context: context, builder: (context) => StatefulBuilder(builder: (context, setS) => AlertDialog(title: const Text('Filters'), content: Column(mainAxisSize: MainAxisSize.min, children: ['Name', 'Caption', 'Tags'].map((f) => CheckboxListTile(title: Text(f), value: _filters.contains(f), onChanged: (v){ setS((){ if(v!)_filters.add(f); else _filters.remove(f); }); _refresh(); })).toList()), actions: [TextButton(onPressed: (){setState(()=>_filters.clear());_refresh();Navigator.pop(context);}, child: const Text('Clear'))])));
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setS) => AlertDialog(
+          title: const Text('Filters'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: ['Name', 'Caption', 'Tags'].map((f) => CheckboxListTile(
+              title: Text(f),
+              value: _filters.contains(f),
+              onChanged: (v) {
+                setS(() {
+                  if (v!) {
+                    _filters.add(f);
+                  } else {
+                    _filters.remove(f);
+                  }
+                });
+                _refresh();
+              },
+            )).toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() => _filters.clear());
+                _refresh();
+                Navigator.pop(context);
+              },
+              child: const Text('Clear'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showCreateAlbum() {
@@ -609,7 +662,7 @@ class _UploadImageScreenState extends State<UploadImageScreen> {
       const SizedBox(height: 16),
       DropdownButtonFormField<int>(
         decoration: const InputDecoration(labelText: 'Target Album'),
-        value: selectedAlbumId,
+        initialValue: selectedAlbumId,
         items: [
           const DropdownMenuItem(value: null, child: Text('Root (No Album)')),
           ...widget.albums.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name)))

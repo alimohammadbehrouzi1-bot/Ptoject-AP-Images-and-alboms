@@ -21,31 +21,41 @@ class _LoginScreenState extends State<LoginScreen> {
     return null;
   }
 
-  void _login(bool isAdmin) {
+  // FIXED: Added async to handle Future from DataService
+  Future<void> _login(bool isAdmin) async {
     if (_formKey.currentState!.validate()) {
-      final username = _usernameController.text;
-      final password = _passwordController.text;
+      final username = _usernameController.text.trim();
+      final password = _passwordController.text.trim();
 
       if (isAdmin) {
-        bool success = DataService().loginAdmin(username, password);
-        if (success) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminDashboard()));
-        } else {
+        // FIXED: Added await to ensure persistence is saved
+        bool success = await DataService().loginAdmin(username, password);
+        if (success && mounted) {
+          Navigator.pushReplacement(
+            context, 
+            MaterialPageRoute(builder: (_) => const AdminDashboard())
+          );
+        } else if (mounted) {
           _showError("Invalid Admin Credentials");
         }
       } else {
-        final user = DataService().loginUser(username, password);
-        if (user != null) {
-          if (user.containsKey('error')) {
+        // FIXED: Added await to ensure persistence is saved
+        final user = await DataService().loginUser(username, password);
+        if (user != null && mounted) {
+          if (user.containsKey('error') && user['error'] == 'BANNED') {
             _showError("Your account is BANNED!");
           } else {
             Navigator.pushReplacement(
               context, 
-              MaterialPageRoute(builder: (_) => MainNavigation(username: username))
+              MaterialPageRoute(builder: (_) => MainNavigation(username: user['username']))
             );
           }
-        } else {
-          _showError("Invalid Username or Password");
+        } else if (mounted) {
+          if (DataService().rawUsers.isEmpty) {
+            _showError("Database not loaded. Please restart.");
+          } else {
+            _showError("Wrong Username or Password");
+          }
         }
       }
     }
@@ -55,6 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: Colors.redAccent,
+      duration: const Duration(seconds: 3),
     ));
   }
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'user_screens.dart';
 
 class DataService {
@@ -13,42 +14,95 @@ class DataService {
   bool isAdminLoggedIn = false;
 
   Future<void> init() async {
-    final String response = await rootBundle.loadString('assets/mock_data.json');
-    final data = json.decode(response);
-    rawUsers = data['users'];
-    rawAdmins = data['admins'];
+    try {
+      // 1. Load the mock database
+      final String response = await rootBundle.loadString('assets/mock_data.json');
+      final data = json.decode(response);
+      rawUsers = data['users'] ?? [];
+      rawAdmins = data['admins'] ?? [];
+      
+      // 2. Load the persistent session from device storage
+      final prefs = await SharedPreferences.getInstance();
+      final String? savedUser = prefs.getString('saved_session_user');
+      
+      if (savedUser != null) {
+        if (savedUser == 'admin') {
+          currentUsername = 'admin';
+          isAdminLoggedIn = true;
+        } else {
+          // Verify user exists and is not banned
+          final user = rawUsers.firstWhere(
+            (u) => u['username'] == savedUser, 
+            orElse: () => null
+          );
+          
+          if (user != null && user['isBanned'] != true) {
+            currentUsername = savedUser;
+            isAdminLoggedIn = false;
+          } else {
+            // Clean up invalid session
+            await prefs.remove('saved_session_user');
+            currentUsername = null;
+          }
+        }
+      }
+    } catch (e) {
+      rawUsers = [];
+    }
   }
 
-  Map<String, dynamic>? loginUser(String username, String password) {
+  Future<Map<String, dynamic>?> loginUser(String username, String password) async {
     try {
       final user = rawUsers.firstWhere(
-        (u) => u['username'] == username && u['password'] == password,
+        (u) => u['username'].toString().toLowerCase() == username.toLowerCase() && 
+               u['password'].toString() == password,
+        orElse: () => null,
       );
+      
+      if (user == null) return null;
       if (user['isBanned'] == true) return {'error': 'BANNED'};
-      currentUsername = username;
+      
+      currentUsername = user['username'];
       isAdminLoggedIn = false;
+      
+      // CRITICAL: Save to persistent storage and wait for it
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('saved_session_user', currentUsername!);
+      
       return user;
     } catch (e) {
       return null;
     }
   }
 
-  bool loginAdmin(String username, String password) {
+  Future<bool> loginAdmin(String username, String password) async {
     try {
-      rawAdmins.firstWhere(
-        (a) => a['username'] == username && a['password'] == password,
+      final admin = rawAdmins.firstWhere(
+        (a) => a['username'].toString().toLowerCase() == username.toLowerCase() && 
+               a['password'].toString() == password,
+        orElse: () => null,
       );
-      currentUsername = 'Admin';
+      
+      if (admin == null) return false;
+      
+      currentUsername = 'admin';
       isAdminLoggedIn = true;
+      
+      // CRITICAL: Save to persistent storage and wait for it
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('saved_session_user', 'admin');
+      
       return true;
     } catch (e) {
       return false;
     }
   }
 
-  void logout() {
+  Future<void> logout() async {
     currentUsername = null;
     isAdminLoggedIn = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('saved_session_user');
   }
 
   void deleteAccount(String username) {
@@ -58,10 +112,13 @@ class DataService {
 
   bool changeUsername(String oldName, String newName) {
     if (rawUsers.any((u) => u['username'] == newName)) return false;
-    final user = rawUsers.firstWhere((u) => u['username'] == oldName, orElse: () => null);
-    if (user != null) {
-      user['username'] = newName;
-      if (currentUsername == oldName) currentUsername = newName;
+    final index = rawUsers.indexWhere((u) => u['username'] == oldName);
+    if (index != -1) {
+      rawUsers[index]['username'] = newName;
+      if (currentUsername == oldName) {
+        currentUsername = newName;
+        SharedPreferences.getInstance().then((prefs) => prefs.setString('saved_session_user', newName));
+      }
       return true;
     }
     return false;
@@ -71,6 +128,7 @@ class DataService {
     final index = rawUsers.indexWhere((u) => u['username'] == username);
     if (index != -1) {
       rawUsers[index]['isBanned'] = !rawUsers[index]['isBanned'];
+      // If currently logged in user gets banned, clear their session
       if (rawUsers[index]['isBanned'] && currentUsername == username) {
         logout();
       }
@@ -145,9 +203,9 @@ class DataService {
       if (targetAlbumId == null) {
         user['standaloneImages'].addAll(allUserPhotos);
       } else {
-        final album = user['albums'].firstWhere((a) => a['id'] == targetAlbumId, orElse: () => null);
-        if (album != null) {
-          album['images'].addAll(allUserPhotos);
+        final albumIndex = user['albums'].indexWhere((a) => a['id'] == targetAlbumId);
+        if (albumIndex != -1) {
+          user['albums'][albumIndex]['images'].addAll(allUserPhotos);
         } else {
            user['standaloneImages'].addAll(allUserPhotos);
         }
@@ -156,16 +214,20 @@ class DataService {
   }
 
   void addAlbum(String username, String name) {
-    final user = rawUsers.firstWhere((u) => u['username'] == username);
-    user['albums'].add({
-      'id': DateTime.now().millisecondsSinceEpoch,
-      'name': name,
-      'images': []
-    });
+    final index = rawUsers.indexWhere((u) => u['username'] == username);
+    if (index != -1) {
+      rawUsers[index]['albums'].add({
+        'id': DateTime.now().millisecondsSinceEpoch,
+        'name': name,
+        'images': []
+      });
+    }
   }
 
   void addImage(String username, Map<String, dynamic> data) {
-    final user = rawUsers.firstWhere((u) => u['username'] == username);
+    final index = rawUsers.indexWhere((u) => u['username'] == username);
+    if (index == -1) return;
+    final user = rawUsers[index];
     final newImg = {
       'id': DateTime.now().millisecondsSinceEpoch,
       'name': data['name'],
@@ -181,9 +243,9 @@ class DataService {
     if (targetId == null) {
       user['standaloneImages'].add(newImg);
     } else {
-      final album = user['albums'].firstWhere((a) => a['id'] == targetId, orElse: () => null);
-      if (album != null) {
-        album['images'].add(newImg);
+      final albumIndex = user['albums'].indexWhere((a) => a['id'] == targetId);
+      if (albumIndex != -1) {
+        user['albums'][albumIndex]['images'].add(newImg);
       } else {
         user['standaloneImages'].add(newImg);
       }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'data_service.dart';
 import 'auth_screens.dart';
 import 'user_screens.dart';
+import 'admin_screens.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,9 +27,11 @@ class PhotoSocialApp extends StatelessWidget {
           surface: Colors.white,
         ),
       ),
-      // Check if someone is already logged in (for simulation)
-      home: DataService().currentUsername != null
-        ? MainNavigation(username: DataService().currentUsername!) 
+      // Persistent Login Logic using static variable simulation
+      home: DataService().currentUsername != null 
+        ? (DataService().currentUsername == 'admin'
+            ? const AdminDashboard() 
+            : MainNavigation(username: DataService().currentUsername!))
         : const LoginScreen(),
     );
   }
