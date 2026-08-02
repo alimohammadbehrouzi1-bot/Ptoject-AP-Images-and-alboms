@@ -170,8 +170,16 @@ class _SignupScreenState extends State<SignupScreen> {
         phone: _phC.text.trim(),
       );
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account Created! Please Login')));
-        Navigator.pop(context);
+        // Auto-Login after registration
+        DataService().loginUser(_uC.text.trim(), _pC.text.trim()).then((_) {
+          if (mounted) {
+            Navigator.pushAndRemoveUntil(
+              context, 
+              MaterialPageRoute(builder: (_) => MainNavigation(username: _uC.text.trim())),
+              (route) => false,
+            );
+          }
+        });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Username already exists')));
       }
