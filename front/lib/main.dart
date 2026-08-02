@@ -15,24 +15,35 @@ class PhotoSocialApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Photo Social',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A73E8),
-          primary: const Color(0xFF1A73E8),
-          secondary: const Color(0xFF00C853),
-          surface: Colors.white,
-        ),
-      ),
-      // Persistent Login Logic using static variable simulation
-      home: DataService().currentUsername != null 
-        ? (DataService().currentUsername == 'admin'
-            ? const AdminDashboard() 
-            : MainNavigation(username: DataService().currentUsername!))
-        : const LoginScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: DataService().themeNotifier,
+      builder: (_, mode, __) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Photo Social',
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF1A73E8),
+              brightness: Brightness.light,
+            ),
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF1A73E8),
+              brightness: Brightness.dark,
+            ),
+          ),
+          themeMode: mode,
+          // Persistent Login Logic using static variable simulation
+          home: DataService().currentUsername != null
+            ? (DataService().currentUsername == 'admin'
+                ? const AdminDashboard()
+                : MainNavigation(username: DataService().currentUsername!))
+            : const LoginScreen(),
+        );
+      },
     );
   }
 }

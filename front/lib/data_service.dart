@@ -13,6 +13,9 @@ class DataService {
   String? currentUsername;
   bool isAdminLoggedIn = false;
 
+  // Theme Management
+  final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
+
   Future<void> init() async {
     try {
       // 1. Load the mock database
@@ -21,8 +24,14 @@ class DataService {
       rawUsers = data['users'] ?? [];
       rawAdmins = data['admins'] ?? [];
       
-      // 2. Load the persistent session from device storage
+      // 2. Load the persistent session and theme from device storage
       final prefs = await SharedPreferences.getInstance();
+
+      // Load Theme
+      final String? savedTheme = prefs.getString('theme_mode');
+      if (savedTheme == 'dark') themeNotifier.value = ThemeMode.dark;
+      if (savedTheme == 'light') themeNotifier.value = ThemeMode.light;
+
       final String? savedUser = prefs.getString('saved_session_user');
       
       if (savedUser != null) {
@@ -174,6 +183,16 @@ class DataService {
     return items;
   }
 
+  Map<String, int> getUserStats(String username) {
+    final user = rawUsers.firstWhere((u) => u['username'] == username, orElse: () => null);
+    if (user == null) return {'photos': 0, 'albums': 0};
+    int photoCount = (user['standaloneImages'] as List).length;
+    for (var album in user['albums']) {
+      photoCount += (album['images'] as List).length;
+    }
+    return {'photos': photoCount, 'albums': (user['albums'] as List).length};
+  }
+
   void deleteItem(int id) {
     for (var user in rawUsers) {
       user['albums'].removeWhere((a) => a['id'] == id);
@@ -311,6 +330,12 @@ class DataService {
         }
       }
     }
+  }
+
+  void toggleTheme(bool isDark) async {
+    themeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('theme_mode', isDark ? 'dark' : 'light');
   }
 
   FileItem _mapToItem(Map<String, dynamic> img, String owner, int? parentId) {

@@ -30,21 +30,16 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
     final bannedUsers = allUsers.where((u) => u['isBanned'] == true).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Admin Console', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text('Admin Console', style: TextStyle(fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.blue,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.blue,
           tabs: const [Tab(text: 'All Users'), Tab(text: 'Banned')],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.admin_panel_settings, color: Colors.blue),
+            icon: const Icon(Icons.admin_panel_settings),
             onPressed: () => _showAdminSheet(),
           )
         ],
@@ -69,13 +64,16 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
         bool isB = u['isBanned'] ?? false;
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
+          elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: ListTile(
-            leading: CircleAvatar(backgroundColor: isB ? Colors.red[50] : Colors.blue[50], child: Icon(Icons.person, color: isB ? Colors.red : Colors.blue)),
+            leading: CircleAvatar(
+              backgroundColor: isB ? Colors.red.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1),
+              child: Icon(Icons.person, color: isB ? Colors.red : Colors.blue)
+            ),
             title: Text(u['username'], style: const TextStyle(fontWeight: FontWeight.bold)),
             trailing: Switch(
               value: !isB,
-              activeThumbColor: Colors.blue,
               onChanged: (v) => _handleBanToggle(u['username']),
             ),
             onTap: () => _showUserDetail(u),
@@ -96,7 +94,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
         _row('Phone', u['phone']),
         _row('Status', u['isBanned'] ? 'Banned' : 'Active'),
         const SizedBox(height: 32),
-        ElevatedButton(onPressed: ()=>Navigator.pop(context), style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[100], foregroundColor: Colors.black), child: const Text('Close')),
+        ElevatedButton(onPressed: ()=>Navigator.pop(context), child: const Text('Close')),
       ]),
     ));
   }

@@ -71,13 +71,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.blue[50]!, Colors.white],
+            colors: [
+              isDark ? Colors.blueGrey[900]! : Colors.blue[50]!,
+              Theme.of(context).colorScheme.surface,
+            ],
           ),
         ),
         child: Center(
@@ -88,15 +92,15 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.photo_library_rounded, size: 64, color: Color(0xFF1A73E8)),
+                  Icon(Icons.photo_library_rounded, size: 64, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(height: 24),
-                  const Text('Social Gallery', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Color(0xFF1A73E8))),
+                  Text('Social Gallery', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary)),
                   const SizedBox(height: 48),
                   TextFormField(
                     controller: _usernameController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Username',
-                      prefixIcon: Icon(Icons.person_outline_rounded, color: Color(0xFF1A73E8)),
+                      prefixIcon: Icon(Icons.person_outline_rounded, color: Theme.of(context).colorScheme.primary),
                     ),
                     validator: (v) => v!.isEmpty ? 'Required' : null,
                   ),
@@ -104,9 +108,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Password',
-                      prefixIcon: Icon(Icons.lock_outline_rounded, color: Color(0xFF1A73E8)),
+                      prefixIcon: Icon(Icons.lock_outline_rounded, color: Theme.of(context).colorScheme.primary),
                     ),
                     validator: _validatePassword,
                   ),

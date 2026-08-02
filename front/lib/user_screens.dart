@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'data_service.dart';
 import 'auth_screens.dart';
 
@@ -55,6 +57,7 @@ class _MainNavigationState extends State<MainNavigation> {
       body: IndexedStack(
         index: _selectedIndex,
         children: [
+          HomePage(username: widget.username),
           GlobalUserSearchPage(currentUsername: widget.username),
           MyStuffsPage(username: widget.username),
         ],
@@ -65,15 +68,77 @@ class _MainNavigationState extends State<MainNavigation> {
           currentIndex: _selectedIndex,
           onTap: (index) => setState(() => _selectedIndex = index),
           elevation: 0,
-          backgroundColor: Colors.white,
-          selectedItemColor: const Color(0xFF1A73E8),
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          selectedItemColor: Theme.of(context).colorScheme.primary,
           unselectedItemColor: Colors.grey[400],
           type: BottomNavigationBarType.fixed,
           items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
             BottomNavigationBarItem(icon: Icon(Icons.person_search_rounded), label: 'Search'),
             BottomNavigationBarItem(icon: Icon(Icons.folder_copy_rounded), label: 'Vault'),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// --- HOME PAGE (All Photos Feed) ---
+class HomePage extends StatelessWidget {
+  final String username;
+  const HomePage({super.key, required this.username});
+
+  @override
+  Widget build(BuildContext context) {
+    final allPhotos = DataService().getAllPhotos();
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        title: const Text('Home Feed', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.8
+        ),
+        itemCount: allPhotos.length,
+        itemBuilder: (context, index) {
+          final item = allPhotos[index];
+          return InkWell(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ImageDetailScreen(item: item, username: username, isReadOnly: item.ownerName != username))),
+            child: Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      ),
+                      child: const Center(child: Icon(Icons.image, size: 40, color: Colors.blue)),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text('by ${item.ownerName}', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -157,24 +222,23 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: Colors.white, elevation: 0,
+        elevation: 0,
         title: _foundUsername == null || _currentAlbum == null 
           ? Container(
-              height: 40, decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+              height: 40, decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
               child: TextField(
                 controller: _searchC, onSubmitted: _handleSearch,
                 decoration: const InputDecoration(hintText: 'Search Username', prefixIcon: Icon(Icons.search, size: 18), border: InputBorder.none),
               ),
             )
-          : Text(_foundUsername!, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+          : Text(_foundUsername!, style: const TextStyle(fontWeight: FontWeight.bold)),
         leading: _currentAlbum != null 
-          ? IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20), onPressed: () { setState(() { _currentAlbum = null; _refreshData(); }); })
-          : (_foundUsername != null ? IconButton(icon: const Icon(Icons.close, color: Colors.black), onPressed: () { setState(() { _foundUsername = null; _searchC.clear(); }); }) : null),
+          ? IconButton(icon: const Icon(Icons.arrow_back_ios_new, size: 20), onPressed: () { setState(() { _currentAlbum = null; _refreshData(); }); })
+          : (_foundUsername != null ? IconButton(icon: const Icon(Icons.close), onPressed: () { setState(() { _foundUsername = null; _searchC.clear(); }); }) : null),
       ),
       body: _foundUsername == null 
-        ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.person_search_rounded, size: 80, color: Colors.grey[300]), const SizedBox(height: 16), const Text('Find a user to see their vault', style: TextStyle(color: Colors.grey))]))
+        ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.person_search_rounded, size: 80, color: Theme.of(context).colorScheme.outlineVariant), const SizedBox(height: 16), const Text('Find a user to see their vault', style: TextStyle(color: Colors.grey))]))
         : GridView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.all(20),
@@ -194,9 +258,10 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
                 child: Column(
                   children: [
                     Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)]),
-                        child: Center(child: Icon(item.isFolder ? Icons.folder_rounded : Icons.image_rounded, size: 48, color: item.isFolder ? Colors.blue[200] : Colors.grey[200])),
+                      child: Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                        child: Center(child: Icon(item.isFolder ? Icons.folder_rounded : Icons.image_rounded, size: 48, color: item.isFolder ? Colors.blue.withValues(alpha: 0.5) : Theme.of(context).colorScheme.outlineVariant)),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -298,11 +363,10 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
     bool canMove = _selectedIds.isNotEmpty && _selectedIds.every((id) => !_allVaultItems.firstWhere((i) => i.id == id).isFolder);
     
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: Colors.white, elevation: 0,
+        elevation: 0,
         title: _isSelectionMode ? Text('${_selectedIds.length} Selected') : Container(
-          height: 40, decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+          height: 40, decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
           child: TextField(
             controller: _searchC, onChanged: (v) { setState(() => _searchQ = v); _refresh(); },
             decoration: InputDecoration(hintText: 'Search', prefixIcon: const Icon(Icons.search, size: 18), suffixIcon: IconButton(icon: const Icon(Icons.tune, size: 18), onPressed: () => _showFilterDialog()), border: InputBorder.none),
@@ -323,7 +387,7 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
             });
           }),
         ] : [
-          GestureDetector(onTap: () => _showUserSheet(), child: Padding(padding: const EdgeInsets.only(right: 16), child: CircleAvatar(radius: 14, backgroundColor: Colors.blue[50], child: Text(widget.username[0].toUpperCase()))))
+          GestureDetector(onTap: () => _showUserSheet(), child: Padding(padding: const EdgeInsets.only(right: 16), child: CircleAvatar(radius: 14, backgroundColor: Colors.blue.withValues(alpha: 0.1), child: Text(widget.username[0].toUpperCase()))))
         ],
       ),
       body: Column(
@@ -364,9 +428,10 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
                   child: Column(
                     children: [
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: sel ? Colors.blue : Colors.transparent, width: 2), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)]),
-                          child: Center(child: Icon(item.isFolder ? Icons.folder_rounded : Icons.image_rounded, size: 48, color: item.isFolder ? Colors.blue[200] : Colors.grey[200])),
+                        child: Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: sel ? Colors.blue : Colors.transparent, width: 2)),
+                          child: Center(child: Icon(item.isFolder ? Icons.folder_rounded : Icons.image_rounded, size: 48, color: item.isFolder ? Colors.blue.withValues(alpha: 0.5) : Theme.of(context).colorScheme.outlineVariant)),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -466,13 +531,12 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(backgroundColor: Colors.white, elevation: 0, title: Text(widget.item.name), actions: [if(!widget.isReadOnly) IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: _showEdit)]),
+      appBar: AppBar(elevation: 0, title: Text(widget.item.name), actions: [if(!widget.isReadOnly) IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: _showEdit)]),
       body: Column(children: [
         Expanded(child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          AspectRatio(aspectRatio: 1.2, child: Container(color: Colors.grey[50], child: const Icon(Icons.image, size: 80, color: Colors.blue))),
+          AspectRatio(aspectRatio: 1.2, child: Container(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.image, size: 80, color: Colors.blue))),
           Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [IconButton(icon: Icon(widget.item.isLiked ? Icons.favorite : Icons.favorite_border, color: widget.item.isLiked ? Colors.red : Colors.black), onPressed: (){ setState((){ widget.item.isLiked = !widget.item.isLiked; widget.item.likes += widget.item.isLiked ? 1 : -1; DataService().toggleLike(widget.item.id); }); }), Text('${widget.item.likes} likes')]),
+            Row(children: [IconButton(icon: Icon(widget.item.isLiked ? Icons.favorite : Icons.favorite_border, color: widget.item.isLiked ? Colors.red : null), onPressed: (){ setState((){ widget.item.isLiked = !widget.item.isLiked; widget.item.likes += widget.item.isLiked ? 1 : -1; DataService().toggleLike(widget.item.id); }); }), Text('${widget.item.likes} likes')]),
             Text(widget.item.caption ?? '', style: const TextStyle(fontSize: 15)),
             Wrap(spacing: 8, children: (widget.item.tags ?? []).map((t) => Text('#$t', style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold))).toList()),
             const Divider(height: 48),
@@ -500,7 +564,7 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
             )),
           ]))
         ]))),
-        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.grey[100]!))), child: Row(children: [Expanded(child: TextField(controller: _commentC, decoration: const InputDecoration(hintText: 'Add comment...', border: InputBorder.none))), IconButton(icon: const Icon(Icons.send), onPressed: (){ if(_commentC.text.isNotEmpty){ setState((){ widget.item.comments.add(CommentData(username: widget.username, text: _commentC.text)); DataService().addComment(widget.item.id, widget.username, _commentC.text); _commentC.clear(); }); } })]))
+        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, border: Border(top: BorderSide(color: Theme.of(context).dividerColor))), child: Row(children: [Expanded(child: TextField(controller: _commentC, decoration: const InputDecoration(hintText: 'Add comment...', border: InputBorder.none))), IconButton(icon: const Icon(Icons.send), onPressed: (){ if(_commentC.text.isNotEmpty){ setState((){ widget.item.comments.add(CommentData(username: widget.username, text: _commentC.text)); DataService().addComment(widget.item.id, widget.username, _commentC.text); _commentC.clear(); }); } })]))
       ]),
     );
   }
@@ -578,23 +642,70 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final liked = DataService().getAllPhotos().where((p) => p.isLiked).toList();
+    final stats = DataService().getUserStats(widget.username);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Profile Settings')),
       body: SingleChildScrollView(padding: const EdgeInsets.all(24), child: Column(children: [
         CircleAvatar(radius: 50, child: Text(widget.username[0].toUpperCase(), style: const TextStyle(fontSize: 32))),
         const SizedBox(height: 16),
         Text(widget.username, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _statItem('Photos', stats['photos']!),
+            const SizedBox(width: 24),
+            _statItem('Albums', stats['albums']!),
+          ],
+        ),
         const SizedBox(height: 32),
-        ListTile(leading: const Icon(Icons.edit_outlined), title: const Text('Change Username'), onTap: _showChangeName, tileColor: Colors.grey[50], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        ListTile(
+          leading: const Icon(Icons.dark_mode_outlined),
+          title: const Text('Dark Mode'),
+          trailing: Switch(
+            value: DataService().themeNotifier.value == ThemeMode.dark,
+            onChanged: (v) => setState(() => DataService().toggleTheme(v)),
+          ),
+          tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+        ),
         const SizedBox(height: 12),
-        ListTile(leading: const Icon(Icons.lock_outline), title: const Text('Change Password'), onTap: _showChangePassword, tileColor: Colors.grey[50], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        ListTile(leading: const Icon(Icons.edit_outlined), title: const Text('Change Username'), onTap: _showChangeName, tileColor: Theme.of(context).colorScheme.surfaceContainerLow, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
         const SizedBox(height: 12),
-        ListTile(leading: const Icon(Icons.delete_forever_outlined, color: Colors.red), title: const Text('Delete Account', style: TextStyle(color: Colors.red)), onTap: _showDeleteConfirm, tileColor: Colors.red[50], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        ListTile(leading: const Icon(Icons.lock_outline), title: const Text('Change Password'), onTap: _showChangePassword, tileColor: Theme.of(context).colorScheme.surfaceContainerLow, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        const SizedBox(height: 12),
+        ListTile(leading: const Icon(Icons.share_outlined), title: const Text('Sharing & Access'), onTap: _showSharingSettings, tileColor: Theme.of(context).colorScheme.surfaceContainerLow, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        const SizedBox(height: 12),
+        ListTile(leading: const Icon(Icons.delete_forever_outlined, color: Colors.red), title: const Text('Delete Account', style: TextStyle(color: Colors.red)), onTap: _showDeleteConfirm, tileColor: Colors.red.withValues(alpha: 0.1), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
         const Divider(height: 64),
         Row(children: [const Icon(Icons.favorite, color: Colors.red), const SizedBox(width: 8), Text('Liked Photos (${liked.length})', style: const TextStyle(fontWeight: FontWeight.bold))]),
         const SizedBox(height: 16),
-        liked.isEmpty ? const Text('No likes yet') : GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: liked.length, itemBuilder: (context, i) => InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ImageDetailScreen(item: liked[i], username: widget.username, isReadOnly: true))), child: Column(children: [Expanded(child: Container(decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.image, color: Colors.grey))), const SizedBox(height: 4), Text(liked[i].name, style: const TextStyle(fontSize: 10))]))),
+        liked.isEmpty ? const Text('No likes yet') : GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: liked.length, itemBuilder: (context, i) => InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ImageDetailScreen(item: liked[i], username: widget.username, isReadOnly: true))), child: Column(children: [Expanded(child: Container(decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.image, color: Colors.grey))), const SizedBox(height: 4), Text(liked[i].name, style: const TextStyle(fontSize: 10))]))),
       ])),
+    );
+  }
+
+  Widget _statItem(String label, int count) => Column(children: [Text(count.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12))]);
+
+  void _showSharingSettings() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Sharing & Access', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            SwitchListTile(title: const Text('Public Profile'), subtitle: const Text('Allow others to search for you'), value: true, onChanged: (v){}),
+            SwitchListTile(title: const Text('Allow Comments'), value: true, onChanged: (v){}),
+            SwitchListTile(title: const Text('Show Likes'), value: true, onChanged: (v){}),
+          ],
+        ),
+      ),
     );
   }
   void _showChangeName() {
@@ -651,28 +762,84 @@ class _UploadImageScreenState extends State<UploadImageScreen> {
   final tC = TextEditingController();
   final List<String> tags = [];
   int? selectedAlbumId;
-  bool sel = false;
+  File? _imageFile;
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickImage(ImageSource source) async {
+    final XFile? image = await _picker.pickImage(source: source);
+    if (image != null) {
+      setState(() {
+        _imageFile = File(image.path);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(appBar: AppBar(title: const Text('New Post')), body: SingleChildScrollView(padding: const EdgeInsets.all(24), child: Column(children: [
-      InkWell(onTap: ()=>setState(()=>sel=true), child: Container(height: 180, width: double.infinity, decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(20)), child: Icon(sel ? Icons.check_circle : Icons.add_a_photo, size: 50, color: Colors.blue[100]))),
-      const SizedBox(height: 24),
-      TextField(controller: nC, decoration: const InputDecoration(labelText: 'Title *')),
-      TextField(controller: cC, decoration: const InputDecoration(labelText: 'Caption')),
-      const SizedBox(height: 16),
-      DropdownButtonFormField<int>(
-        decoration: const InputDecoration(labelText: 'Target Album'),
-        initialValue: selectedAlbumId,
-        items: [
-          const DropdownMenuItem(value: null, child: Text('Root (No Album)')),
-          ...widget.albums.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name)))
-        ],
-        onChanged: (v) => setState(() => selectedAlbumId = v),
+    return Scaffold(
+      appBar: AppBar(title: const Text('New Post')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(children: [
+          InkWell(
+            onTap: () => _showPickerOptions(),
+            child: Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.1))
+              ),
+              child: _imageFile != null
+                ? ClipRRect(borderRadius: BorderRadius.circular(20), child: Image.file(_imageFile!, fit: BoxFit.cover))
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_a_photo, size: 50, color: Colors.blue.withValues(alpha: 0.3)),
+                      const SizedBox(height: 8),
+                      const Text('Tap to select photo', style: TextStyle(color: Colors.grey))
+                    ],
+                  )
+            ),
+          ),
+          const SizedBox(height: 24),
+          TextField(controller: nC, decoration: const InputDecoration(labelText: 'Title *')),
+          TextField(controller: cC, decoration: const InputDecoration(labelText: 'Caption')),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<int>(
+            decoration: const InputDecoration(labelText: 'Target Album'),
+            value: selectedAlbumId,
+            items: [
+              const DropdownMenuItem(value: null, child: Text('Root (No Album)')),
+              ...widget.albums.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name)))
+            ],
+            onChanged: (v) => setState(() => selectedAlbumId = v),
+          ),
+          Row(children: [Expanded(child: TextField(controller: tC, decoration: const InputDecoration(hintText: 'Add tag'))), IconButton(icon: const Icon(Icons.add), onPressed: (){if(tC.text.isNotEmpty){setState(()=>tags.add(tC.text));tC.clear();}})]),
+          Wrap(spacing: 8, children: tags.map((t) => Chip(label: Text('#$t'), onDeleted: ()=>setState(()=>tags.remove(t)))).toList()),
+          const SizedBox(height: 32),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: (){ if(nC.text.isNotEmpty) Navigator.pop(context, {'name': nC.text, 'caption': cC.text, 'tags': tags, 'albumId': selectedAlbumId}); },
+            child: const Text('Share')
+          )
+        ])
+      )
+    );
+  }
+
+  void _showPickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(leading: const Icon(Icons.photo_library), title: const Text('Gallery'), onTap: () { _pickImage(ImageSource.gallery); Navigator.pop(context); }),
+            ListTile(leading: const Icon(Icons.camera_alt), title: const Text('Camera'), onTap: () { _pickImage(ImageSource.camera); Navigator.pop(context); }),
+          ],
+        ),
       ),
-      Row(children: [Expanded(child: TextField(controller: tC, decoration: const InputDecoration(hintText: 'Add tag'))), IconButton(icon: const Icon(Icons.add), onPressed: (){if(tC.text.isNotEmpty){setState(()=>tags.add(tC.text));tC.clear();}})]),
-      Wrap(spacing: 8, children: tags.map((t) => Chip(label: Text('#$t'), onDeleted: ()=>setState(()=>tags.remove(t)))).toList()),
-      const SizedBox(height: 32),
-      ElevatedButton(onPressed: (){ if(nC.text.isNotEmpty) Navigator.pop(context, {'name': nC.text, 'caption': cC.text, 'tags': tags, 'albumId': selectedAlbumId}); }, child: const Text('Share'))
-    ])));
+    );
   }
 }
