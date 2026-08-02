@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'user_screens.dart';
+import 'package:flutter/material.dart';
+
 
 class DataService {
   static final DataService _instance = DataService._internal();
@@ -112,6 +114,31 @@ class DataService {
     isAdminLoggedIn = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('saved_session_user');
+  }
+
+  bool registerUser({
+    required String username,
+    required String password,
+    String? email,
+    String? phone,
+  }) {
+    // Check if user already exists
+    if (rawUsers.any((u) => u['username'].toString().toLowerCase() == username.toLowerCase())) {
+      return false;
+    }
+
+    final newUser = {
+      'username': username,
+      'password': password,
+      'email': email ?? "",
+      'phoneNumber': phone ?? "",
+      'isBanned': false,
+      'albums': [],
+      'standaloneImages': []
+    };
+
+    rawUsers.add(newUser);
+    return true;
   }
 
   void deleteAccount(String username) {
