@@ -26,19 +26,21 @@ public class User {
         this.likedComment = new HashSet<>();
         this.banned = false;
         Admin.allUsers.add(this);
-        logIn(username, password);
+
 
     }
 
     public User(String username, String password, String email) throws Exception {
         this(username, password);
         setEmail(email);
+        logIn(username, password);
 
     }
 
     public User(String username, String password, Long phoneNumber) throws Exception {
         this(username, password);
         setPhoneNumber(phoneNumber);
+        logIn(username, password);
 
     }
 
@@ -46,6 +48,7 @@ public class User {
         this(username, password);
         setEmail(email);
         setPhoneNumber(phoneNumber);
+        logIn(username, password);
 
     }
 
