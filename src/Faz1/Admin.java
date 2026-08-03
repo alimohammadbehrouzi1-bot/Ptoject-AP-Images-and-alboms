@@ -5,10 +5,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class Admin {
-    private  String username;
+    public  String username;
     private String password;
-    static Set<User> allUsers = new HashSet<>();
-    static Set<Admin> allAdmins= new HashSet<>();
+    public static Set<User> allUsers = new HashSet<>();
+    public static Set<Admin> allAdmins= new HashSet<>();
 
     public Admin(String username, String password) {
         this.username = username;
