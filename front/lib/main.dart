@@ -38,10 +38,10 @@ class PhotoSocialApp extends StatelessWidget {
           themeMode: mode,
           // Persistent Login Logic using static variable simulation
           home: DataService().currentUsername != null
-            ? (DataService().currentUsername == 'admin'
-                ? const AdminDashboard()
-                : MainNavigation(username: DataService().currentUsername!))
-            : const LoginScreen(),
+              ? (DataService().currentUsername == 'admin'
+                    ? const AdminDashboard()
+                    : MainNavigation(username: DataService().currentUsername!))
+              : const LoginScreen(),
         );
       },
     );

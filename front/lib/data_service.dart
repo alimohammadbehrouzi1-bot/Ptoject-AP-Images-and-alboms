@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'user_screens.dart';
@@ -16,16 +17,20 @@ class DataService {
   bool isAdminLoggedIn = false;
 
   // Theme Management
-  final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
+  final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(
+    ThemeMode.system,
+  );
 
   Future<void> init() async {
     try {
       // 1. Load the mock database
-      final String response = await rootBundle.loadString('assets/mock_data.json');
+      final String response = await rootBundle.loadString(
+        'assets/mock_data.json',
+      );
       final data = json.decode(response);
       rawUsers = data['users'] ?? [];
       rawAdmins = data['admins'] ?? [];
-      
+
       // 2. Load the persistent session and theme from device storage
       final prefs = await SharedPreferences.getInstance();
 
@@ -35,7 +40,7 @@ class DataService {
       if (savedTheme == 'light') themeNotifier.value = ThemeMode.light;
 
       final String? savedUser = prefs.getString('saved_session_user');
-      
+
       if (savedUser != null) {
         if (savedUser == 'admin') {
           currentUsername = 'admin';
@@ -43,10 +48,10 @@ class DataService {
         } else {
           // Verify user exists and is not banned
           final user = rawUsers.firstWhere(
-            (u) => u['username'] == savedUser, 
-            orElse: () => null
+            (u) => u['username'] == savedUser,
+            orElse: () => null,
           );
-          
+
           if (user != null && user['isBanned'] != true) {
             currentUsername = savedUser;
             isAdminLoggedIn = false;
@@ -62,24 +67,28 @@ class DataService {
     }
   }
 
-  Future<Map<String, dynamic>?> loginUser(String username, String password) async {
+  Future<Map<String, dynamic>?> loginUser(
+    String username,
+    String password,
+  ) async {
     try {
       final user = rawUsers.firstWhere(
-        (u) => u['username'].toString().toLowerCase() == username.toLowerCase() && 
-               u['password'].toString() == password,
+        (u) =>
+            u['username'].toString().toLowerCase() == username.toLowerCase() &&
+            u['password'].toString() == password,
         orElse: () => null,
       );
-      
+
       if (user == null) return null;
       if (user['isBanned'] == true) return {'error': 'BANNED'};
-      
+
       currentUsername = user['username'];
       isAdminLoggedIn = false;
-      
+
       // CRITICAL: Save to persistent storage and wait for it
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('saved_session_user', currentUsername!);
-      
+
       return user;
     } catch (e) {
       return null;
@@ -89,20 +98,21 @@ class DataService {
   Future<bool> loginAdmin(String username, String password) async {
     try {
       final admin = rawAdmins.firstWhere(
-        (a) => a['username'].toString().toLowerCase() == username.toLowerCase() && 
-               a['password'].toString() == password,
+        (a) =>
+            a['username'].toString().toLowerCase() == username.toLowerCase() &&
+            a['password'].toString() == password,
         orElse: () => null,
       );
-      
+
       if (admin == null) return false;
-      
+
       currentUsername = 'admin';
       isAdminLoggedIn = true;
-      
+
       // CRITICAL: Save to persistent storage and wait for it
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('saved_session_user', 'admin');
-      
+
       return true;
     } catch (e) {
       return false;
@@ -153,7 +163,9 @@ class DataService {
       rawUsers[index]['username'] = newName;
       if (currentUsername == oldName) {
         currentUsername = newName;
-        SharedPreferences.getInstance().then((prefs) => prefs.setString('saved_session_user', newName));
+        SharedPreferences.getInstance().then(
+          (prefs) => prefs.setString('saved_session_user', newName),
+        );
       }
       return true;
     }
@@ -189,17 +201,22 @@ class DataService {
 
   List<FileItem> getVaultItems(String username) {
     List<FileItem> items = [];
-    final user = rawUsers.firstWhere((u) => u['username'] == username, orElse: () => null);
+    final user = rawUsers.firstWhere(
+      (u) => u['username'] == username,
+      orElse: () => null,
+    );
     if (user == null) return [];
-    
+
     for (var album in user['albums']) {
-      items.add(FileItem(
-        id: album['id'],
-        name: album['name'],
-        isFolder: true,
-        ownerName: username,
-        date: DateTime.now(),
-      ));
+      items.add(
+        FileItem(
+          id: album['id'],
+          name: album['name'],
+          isFolder: true,
+          ownerName: username,
+          date: DateTime.now(),
+        ),
+      );
       for (var img in album['images']) {
         items.add(_mapToItem(img, username, album['id']));
       }
@@ -211,7 +228,10 @@ class DataService {
   }
 
   Map<String, int> getUserStats(String username) {
-    final user = rawUsers.firstWhere((u) => u['username'] == username, orElse: () => null);
+    final user = rawUsers.firstWhere(
+      (u) => u['username'] == username,
+      orElse: () => null,
+    );
     if (user == null) return {'photos': 0, 'albums': 0};
     int photoCount = (user['standaloneImages'] as List).length;
     for (var album in user['albums']) {
@@ -234,14 +254,20 @@ class DataService {
     for (var user in rawUsers) {
       List<Map<String, dynamic>> allUserPhotos = [];
       for (var album in user['albums']) {
-        var toMove = (album['images'] as List).where((img) => photoIds.contains(img['id'])).toList();
+        var toMove = (album['images'] as List)
+            .where((img) => photoIds.contains(img['id']))
+            .toList();
         album['images'].removeWhere((img) => photoIds.contains(img['id']));
         for (var m in toMove) {
           allUserPhotos.add(m as Map<String, dynamic>);
         }
       }
-      var standaloneToMove = (user['standaloneImages'] as List).where((img) => photoIds.contains(img['id'])).toList();
-      user['standaloneImages'].removeWhere((img) => photoIds.contains(img['id']));
+      var standaloneToMove = (user['standaloneImages'] as List)
+          .where((img) => photoIds.contains(img['id']))
+          .toList();
+      user['standaloneImages'].removeWhere(
+        (img) => photoIds.contains(img['id']),
+      );
       for (var m in standaloneToMove) {
         allUserPhotos.add(m as Map<String, dynamic>);
       }
@@ -249,11 +275,13 @@ class DataService {
       if (targetAlbumId == null) {
         user['standaloneImages'].addAll(allUserPhotos);
       } else {
-        final albumIndex = user['albums'].indexWhere((a) => a['id'] == targetAlbumId);
+        final albumIndex = user['albums'].indexWhere(
+          (a) => a['id'] == targetAlbumId,
+        );
         if (albumIndex != -1) {
           user['albums'][albumIndex]['images'].addAll(allUserPhotos);
         } else {
-           user['standaloneImages'].addAll(allUserPhotos);
+          user['standaloneImages'].addAll(allUserPhotos);
         }
       }
     }
@@ -265,7 +293,7 @@ class DataService {
       rawUsers[index]['albums'].add({
         'id': DateTime.now().millisecondsSinceEpoch,
         'name': name,
-        'images': []
+        'images': [],
       });
     }
   }
@@ -282,9 +310,9 @@ class DataService {
       'likes': 0,
       'isLiked': false,
       'date': DateTime.now().toIso8601String(),
-      'comments': []
+      'comments': [],
     };
-    
+
     int? targetId = data['albumId'];
     if (targetId == null) {
       user['standaloneImages'].add(newImg);
@@ -345,14 +373,24 @@ class DataService {
       for (var album in user['albums']) {
         for (var img in album['images']) {
           if (img['id'] == photoId) {
-            img['comments'].add({'username': username, 'text': text, 'likes': 0, 'isLiked': false});
+            img['comments'].add({
+              'username': username,
+              'text': text,
+              'likes': 0,
+              'isLiked': false,
+            });
             return;
           }
         }
       }
       for (var img in user['standaloneImages']) {
         if (img['id'] == photoId) {
-          img['comments'].add({'username': username, 'text': text, 'likes': 0, 'isLiked': false});
+          img['comments'].add({
+            'username': username,
+            'text': text,
+            'likes': 0,
+            'isLiked': false,
+          });
           return;
         }
       }
@@ -377,12 +415,16 @@ class DataService {
       likes: img['likes'] ?? 0,
       isLiked: img['isLiked'] ?? false,
       date: DateTime.parse(img['date']),
-      comments: (img['comments'] as List? ?? []).map((c) => CommentData(
-        username: c['username'],
-        text: c['text'],
-        likes: c['likes'] ?? 0,
-        isLiked: c['isLiked'] ?? false,
-      )).toList(),
+      comments: (img['comments'] as List? ?? [])
+          .map(
+            (c) => CommentData(
+              username: c['username'],
+              text: c['text'],
+              likes: c['likes'] ?? 0,
+              isLiked: c['isLiked'] ?? false,
+            ),
+          )
+          .toList(),
     );
   }
 }

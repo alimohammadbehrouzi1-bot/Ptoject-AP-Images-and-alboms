@@ -43,11 +43,7 @@ class AlbumModel {
   final String name;
   final List<ImageModel> images;
 
-  AlbumModel({
-    required this.id,
-    required this.name,
-    this.images = const [],
-  });
+  AlbumModel({required this.id, required this.name, this.images = const []});
 }
 
 class CommentModel {

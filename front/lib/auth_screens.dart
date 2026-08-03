@@ -33,8 +33,8 @@ class _LoginScreenState extends State<LoginScreen> {
         bool success = await DataService().loginAdmin(username, password);
         if (success && mounted) {
           Navigator.pushReplacement(
-            context, 
-            MaterialPageRoute(builder: (_) => const AdminDashboard())
+            context,
+            MaterialPageRoute(builder: (_) => const AdminDashboard()),
           );
         } else if (mounted) {
           _showError("Invalid Admin Credentials");
@@ -46,8 +46,10 @@ class _LoginScreenState extends State<LoginScreen> {
             _showError("Your account is BANNED!");
           } else {
             Navigator.pushReplacement(
-              context, 
-              MaterialPageRoute(builder: (_) => MainNavigation(username: user['username']))
+              context,
+              MaterialPageRoute(
+                builder: (_) => MainNavigation(username: user['username']),
+              ),
             );
           }
         } else if (mounted) {
@@ -58,10 +60,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: Colors.redAccent,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -87,15 +92,29 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.photo_library_rounded, size: 64, color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    Icons.photo_library_rounded,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(height: 24),
-                  Text('Social Gallery', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary)),
+                  Text(
+                    'Social Gallery',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
                   const SizedBox(height: 48),
                   TextFormField(
                     controller: _usernameController,
                     decoration: InputDecoration(
                       hintText: 'Username',
-                      prefixIcon: Icon(Icons.person_outline_rounded, color: Theme.of(context).colorScheme.primary),
+                      prefixIcon: Icon(
+                        Icons.person_outline_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                     validator: (v) => v!.isEmpty ? 'Required' : null,
                   ),
@@ -105,21 +124,29 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: true,
                     decoration: InputDecoration(
                       hintText: 'Password',
-                      prefixIcon: Icon(Icons.lock_outline_rounded, color: Theme.of(context).colorScheme.primary),
+                      prefixIcon: Icon(
+                        Icons.lock_outline_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                     validator: _validatePassword,
                   ),
                   const SizedBox(height: 32),
                   ElevatedButton(
                     onPressed: () => _login(false),
-                    child: const Text('Sign In', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'Sign In',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton(
                     onPressed: () => _login(true),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 52),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                     child: const Text('Sign In as Admin'),
                   ),
