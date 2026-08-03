@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'user_screens.dart';
-import 'package:flutter/material.dart';
-
 
 class DataService {
   static final DataService _instance = DataService._internal();
@@ -133,7 +131,9 @@ class DataService {
     String? phone,
   }) {
     // Check if user already exists
-    if (rawUsers.any((u) => u['username'].toString().toLowerCase() == username.toLowerCase())) {
+    if (rawUsers.any(
+      (u) => u['username'].toString().toLowerCase() == username.toLowerCase(),
+    )) {
       return false;
     }
 
@@ -144,7 +144,7 @@ class DataService {
       'phoneNumber': phone ?? "",
       'isBanned': false,
       'albums': [],
-      'standaloneImages': []
+      'standaloneImages': [],
     };
 
     rawUsers.add(newUser);
