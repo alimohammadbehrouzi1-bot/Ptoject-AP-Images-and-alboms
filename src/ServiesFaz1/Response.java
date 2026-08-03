@@ -7,12 +7,6 @@ public class Response {
     private String message;
     private Map<String, Object> payload;
 
-    public Response(int statusCode, String message, Map<String, Object> payload) {
-        this.statusCode = statusCode;
-        this.message = message;
-        this.payload = payload;
-    }
-
     public int getStatusCode() {
         return statusCode;
     }
