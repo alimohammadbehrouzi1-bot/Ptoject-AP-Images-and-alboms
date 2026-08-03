@@ -3,9 +3,25 @@ package ServiesFaz1;
 import java.util.Map;
 
 public class Response {
+    private String requestId;
     private int statusCode;
     private String message;
-    private Map<String, Object> payload;
+    private Map<String, Object> data;
+
+    public Response(String requestId, int statusCode, String message, Map<String, Object> data) {
+        this.requestId = requestId;
+        this.statusCode = statusCode;
+        this.message = message;
+        this.data = data;
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
+    }
 
     public int getStatusCode() {
         return statusCode;
@@ -23,11 +39,11 @@ public class Response {
         this.message = message;
     }
 
-    public Map<String, Object> getPayload() {
-        return payload;
+    public Map<String, Object> getData() {
+        return data;
     }
 
-    public void setPayload(Map<String, Object> payload) {
-        this.payload = payload;
+    public void setData(Map<String, Object> data) {
+        this.data = data;
     }
 }

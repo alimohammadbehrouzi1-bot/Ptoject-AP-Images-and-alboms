@@ -5,21 +5,31 @@ import com.google.gson.GsonBuilder;
 import Faz1.Admin;
 import Faz1.User;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 public class DatabaseManager {
     private static final String FILE_PATH = "storage/database.json";
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
+    private static class DataWrapper {
+        Set<User> users = new HashSet<>();
+        Set<Admin> admins = new HashSet<>();
+    }
+
     public synchronized static void save() {
-        try (FileWriter writer = new FileWriter(FILE_PATH)) {
-            Map<String, Object> data = new HashMap<>();
-            data.put("users", Admin.allUsers);
-            data.put("admins", Admin.allAdmins);
-            gson.toJson(data, writer);
+        try {
+            File directory = new File("storage");
+            if (!directory.exists()) {
+                directory.mkdirs();
+            }
+
+            try (FileWriter writer = new FileWriter(FILE_PATH)) {
+                DataWrapper wrapper = new DataWrapper();
+                wrapper.users = Admin.allUsers;
+                wrapper.admins = Admin.allAdmins;
+                gson.toJson(wrapper, writer);
+            }
         } catch (IOException e) {
             System.err.println("Save error: " + e.getMessage());
         }
@@ -30,9 +40,17 @@ public class DatabaseManager {
         if (!file.exists()) return;
 
         try (FileReader reader = new FileReader(file)) {
-            Map<String, Object> data = gson.fromJson(reader, Map.class);
-            if (data != null) {
-                System.out.println("Data loaded from file.");
+            DataWrapper wrapper = gson.fromJson(reader, DataWrapper.class);
+            if (wrapper != null) {
+                if (wrapper.users != null) {
+                    Admin.allUsers.clear();
+                    Admin.allUsers.addAll(wrapper.users);
+                }
+                if (wrapper.admins != null) {
+                    Admin.allAdmins.clear();
+                    Admin.allAdmins.addAll(wrapper.admins);
+                }
+                System.out.println("Database loaded successfully.");
             }
         } catch (IOException e) {
             System.err.println("Load error: " + e.getMessage());

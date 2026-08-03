@@ -199,7 +199,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _eC = TextEditingController();
   final _phC = TextEditingController();
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       if (_eC.text.isEmpty && _phC.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -207,7 +207,7 @@ class _SignupScreenState extends State<SignupScreen> {
         );
         return;
       }
-      bool success = DataService().registerUser(
+      bool success = await DataService().registerUser(
         username: _uC.text.trim(),
         password: _pC.text.trim(),
         email: _eC.text.trim(),
@@ -215,21 +215,22 @@ class _SignupScreenState extends State<SignupScreen> {
       );
       if (success) {
         // Auto-Login after registration
-        DataService().loginUser(_uC.text.trim(), _pC.text.trim()).then((_) {
-          if (mounted) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (_) => MainNavigation(username: _uC.text.trim()),
-              ),
-              (route) => false,
-            );
-          }
-        });
+        await DataService().loginUser(_uC.text.trim(), _pC.text.trim());
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MainNavigation(username: _uC.text.trim()),
+            ),
+            (route) => false,
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Username already exists')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Username already exists')),
+          );
+        }
       }
     }
   }
