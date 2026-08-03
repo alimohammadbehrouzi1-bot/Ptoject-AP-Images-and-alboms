@@ -1,16 +1,30 @@
 import 'dart:convert';
 
 class ApiRequest {
+  final String? requestId;
   final String route;
   final Map<String, dynamic> payload;
 
-  ApiRequest({required this.route, required this.payload});
+  ApiRequest({this.requestId, required this.route, required this.payload});
 
   Map<String, dynamic> toJson() {
-    return {'route': route, 'payload': payload};
+    return {
+      if (requestId != null) 'requestId': requestId,
+      'route': route,
+      'payload': payload,
+    };
   }
 
   String encode() {
-    return jsonEncode(toJson());
+    return '${jsonEncode(toJson())}\n';
+  }
+
+  @override
+  String toString() {
+    final Map<String, dynamic> safePayload = Map.from(payload);
+    if (safePayload.containsKey('password')) {
+      safePayload['password'] = '********';
+    }
+    return 'ApiRequest(requestId: $requestId, route: $route, payload: $safePayload)';
   }
 }

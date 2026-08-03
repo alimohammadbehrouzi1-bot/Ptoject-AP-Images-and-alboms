@@ -154,10 +154,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("New here? ", style: TextStyle(color: Colors.grey[400])),
+                      Text(
+                        "New here? ",
+                        style: TextStyle(color: Colors.grey[400]),
+                      ),
                       GestureDetector(
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignupScreen())),
-                        child: Text("Create Account", style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SignupScreen(),
+                          ),
+                        ),
+                        child: Text(
+                          "Create Account",
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -187,7 +202,9 @@ class _SignupScreenState extends State<SignupScreen> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       if (_eC.text.isEmpty && _phC.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('At least Email or Phone is required')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('At least Email or Phone is required')),
+        );
         return;
       }
       bool success = DataService().registerUser(
@@ -201,14 +218,18 @@ class _SignupScreenState extends State<SignupScreen> {
         DataService().loginUser(_uC.text.trim(), _pC.text.trim()).then((_) {
           if (mounted) {
             Navigator.pushAndRemoveUntil(
-              context, 
-              MaterialPageRoute(builder: (_) => MainNavigation(username: _uC.text.trim())),
+              context,
+              MaterialPageRoute(
+                builder: (_) => MainNavigation(username: _uC.text.trim()),
+              ),
               (route) => false,
             );
           }
         });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Username already exists')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Username already exists')),
+        );
       }
     }
   }
@@ -225,42 +246,66 @@ class _SignupScreenState extends State<SignupScreen> {
             children: [
               TextFormField(
                 controller: _uC,
-                decoration: const InputDecoration(labelText: 'Username *', prefixIcon: Icon(Icons.person)),
+                decoration: const InputDecoration(
+                  labelText: 'Username *',
+                  prefixIcon: Icon(Icons.person),
+                ),
                 validator: (v) => v!.isEmpty ? 'Username is required' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _pC,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password *', prefixIcon: Icon(Icons.lock)),
+                decoration: const InputDecoration(
+                  labelText: 'Password *',
+                  prefixIcon: Icon(Icons.lock),
+                ),
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'Password is required';
                   if (v.length < 8) return 'Minimum 8 characters';
-                  if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$').hasMatch(v)) return 'Must include Upper, Lower and Digit';
+                  if (!RegExp(
+                    r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$',
+                  ).hasMatch(v))
+                    return 'Must include Upper, Lower and Digit';
                   return null;
                 },
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _eC,
-                decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email)),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                ),
                 validator: (v) {
-                  if (v != null && v.isNotEmpty && !RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return 'Invalid Email';
+                  if (v != null &&
+                      v.isNotEmpty &&
+                      !RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v))
+                    return 'Invalid Email';
                   return null;
                 },
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _phC,
-                decoration: const InputDecoration(labelText: 'Phone (e.g. 989123456789)', prefixIcon: Icon(Icons.phone)),
+                decoration: const InputDecoration(
+                  labelText: 'Phone (e.g. 989123456789)',
+                  prefixIcon: Icon(Icons.phone),
+                ),
                 keyboardType: TextInputType.phone,
                 validator: (v) {
-                  if (v != null && v.isNotEmpty && !RegExp(r'^98\d{10}$').hasMatch(v)) return 'Must be 12 digits starting with 98';
+                  if (v != null &&
+                      v.isNotEmpty &&
+                      !RegExp(r'^98\d{10}$').hasMatch(v))
+                    return 'Must be 12 digits starting with 98';
                   return null;
                 },
               ),
               const SizedBox(height: 32),
-              const Text('* At least Email or Phone is required', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text(
+                '* At least Email or Phone is required',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
               const SizedBox(height: 16),
               ElevatedButton(onPressed: _submit, child: const Text('Register')),
             ],
