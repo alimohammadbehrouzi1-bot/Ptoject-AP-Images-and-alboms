@@ -37,23 +37,29 @@ public class DatabaseManager {
 
     public synchronized static void load() {
         File file = new File(FILE_PATH);
-        if (!file.exists()) return;
-
-        try (FileReader reader = new FileReader(file)) {
-            DataWrapper wrapper = gson.fromJson(reader, DataWrapper.class);
-            if (wrapper != null) {
-                if (wrapper.users != null) {
-                    Admin.allUsers.clear();
-                    Admin.allUsers.addAll(wrapper.users);
+        if (file.exists()) {
+            try (FileReader reader = new FileReader(file)) {
+                DataWrapper wrapper = gson.fromJson(reader, DataWrapper.class);
+                if (wrapper != null) {
+                    if (wrapper.users != null) {
+                        Admin.allUsers.clear();
+                        Admin.allUsers.addAll(wrapper.users);
+                    }
+                    if (wrapper.admins != null) {
+                        Admin.allAdmins.clear();
+                        Admin.allAdmins.addAll(wrapper.admins);
+                    }
+                    System.out.println("Database loaded successfully.");
                 }
-                if (wrapper.admins != null) {
-                    Admin.allAdmins.clear();
-                    Admin.allAdmins.addAll(wrapper.admins);
-                }
-                System.out.println("Database loaded successfully.");
+            } catch (IOException e) {
+                System.err.println("Load error: " + e.getMessage());
             }
-        } catch (IOException e) {
-            System.err.println("Load error: " + e.getMessage());
+        }
+
+        if (Admin.allAdmins.isEmpty()) {
+            new Admin("admin", "admin");
+            save();
+            System.out.println("Default admin created.");
         }
     }
 }

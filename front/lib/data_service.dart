@@ -1,11 +1,9 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'core/config/server_config.dart';
 import 'core/network/api_request.dart';
 import 'core/network/api_response.dart';
 import 'core/network/api_routes.dart';
+import 'core/network/socket_client.dart';
 import 'user_screens.dart';
 
 class DataService {
@@ -13,12 +11,13 @@ class DataService {
   factory DataService() => _instance;
   DataService._internal();
 
+  List<dynamic> rawUsers = [];
+  List<dynamic> rawAdmins = [];
   String? currentUsername;
   bool isAdminLoggedIn = false;
 
-  final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
-
-  Socket? _socket;
+  final ValueNotifier<ThemeMode> themeNotifier =
+      ValueNotifier(ThemeMode.system);
 
   Future<void> init() async {
     try {
@@ -36,42 +35,29 @@ class DataService {
     } catch (e) {}
   }
 
-  Future<Socket> _getSocket() async {
-    if (_socket == null) {
-      _socket = await Socket.connect(ServerConfig.host, ServerConfig.port);
-    }
-    return _socket!;
-  }
-
-  Future<ApiResponse> _sendRequest(ApiRequest request) async {
-    try {
-      final socket = await _getSocket();
-      socket.write(request.encode());
-      
-      final responseStr = await utf8.decoder.bind(socket).transform(const LineSplitter()).first;
-      return ApiResponse.fromJson(jsonDecode(responseStr));
-    } catch (e) {
-      _socket = null;
-      return ApiResponse.error(e.toString());
-    }
-  }
-
-  Future<Map<String, dynamic>?> loginUser(String username, String password) async {
+  Future<Map<String, dynamic>?> loginUser(
+    String username,
+    String password,
+  ) async {
     final request = ApiRequest(
       route: ApiRoutes.loginUser,
       payload: {'username': username, 'password': password},
     );
 
-    final response = await _sendRequest(request);
+    try {
+      final response = await SocketClient().sendRequest(request);
 
-    if (response.isSuccess) {
-      currentUsername = username;
-      isAdminLoggedIn = false;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('saved_session_user', currentUsername!);
-      return {'username': username};
-    } else if (response.statusCode == 403) {
-      return {'error': 'BANNED'};
+      if (response.isSuccess) {
+        currentUsername = username;
+        isAdminLoggedIn = false;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('saved_session_user', currentUsername!);
+        return {'username': username};
+      } else if (response.statusCode == 403) {
+        return {'error': 'BANNED'};
+      }
+    } catch (e) {
+      debugPrint('Login error: $e');
     }
     return null;
   }
@@ -82,14 +68,18 @@ class DataService {
       payload: {'username': username, 'password': password},
     );
 
-    final response = await _sendRequest(request);
+    try {
+      final response = await SocketClient().sendRequest(request);
 
-    if (response.isSuccess) {
-      currentUsername = 'admin';
-      isAdminLoggedIn = true;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('saved_session_user', 'admin');
-      return true;
+      if (response.isSuccess) {
+        currentUsername = 'admin';
+        isAdminLoggedIn = true;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('saved_session_user', 'admin');
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Admin login error: $e');
     }
     return false;
   }
@@ -99,10 +89,7 @@ class DataService {
     isAdminLoggedIn = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('saved_session_user');
-    if (_socket != null) {
-      await _socket!.close();
-      _socket = null;
-    }
+    await SocketClient().disconnect();
   }
 
   Future<bool> registerUser({
@@ -121,8 +108,13 @@ class DataService {
       },
     );
 
-    final response = await _sendRequest(request);
-    return response.isSuccess;
+    try {
+      final response = await SocketClient().sendRequest(request);
+      return response.isSuccess;
+    } catch (e) {
+      debugPrint('Registration error: $e');
+      return false;
+    }
   }
 
   bool changeUsername(String oldName, String newName) {
@@ -135,6 +127,7 @@ class DataService {
     return true;
   }
 
+  // Stubs for remaining methods - these will be connected to Socket in future phases
   List<FileItem> getAllPhotos() => [];
   List<FileItem> getVaultItems(String username) => [];
   Map<String, int> getUserStats(String username) => {'photos': 0, 'albums': 0};

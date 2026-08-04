@@ -114,7 +114,7 @@ class ClientHandler implements Runnable {
         String password = (String) request.getPayload().get("password");
         String email = (String) request.getPayload().get("email");
         Object phoneRaw = request.getPayload().get("phone");
-        Long phone = (phoneRaw != null) ? (long) Double.parseDouble(phoneRaw.toString()) : null;
+        Long phone = (phoneRaw != null) ? Long.parseLong(phoneRaw.toString()) : null;
 
         try {
             if (email != null && !email.isEmpty() && phone != null) new User(username, password, email, phone);
@@ -122,6 +122,7 @@ class ClientHandler implements Runnable {
             else if (phone != null) new User(username, password, phone);
             else new User(username, password);
 
+            DatabaseManager.save();
             return new Response(request.getRequestId(), 200, "Registration Success", new HashMap<>());
         } catch (Exception e) {
             return new Response(request.getRequestId(), 400, "Registration Failed: " + e.getMessage(), null);
