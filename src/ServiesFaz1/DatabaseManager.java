@@ -1,16 +1,28 @@
 package ServiesFaz1;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.google.gson.*;
 import Faz1.Admin;
 import Faz1.User;
 import java.io.*;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
 public class DatabaseManager {
     private static final String FILE_PATH = "storage/database.json";
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson gson = new GsonBuilder()
+            .registerTypeAdapter(
+                    LocalDateTime.class,
+                    (JsonSerializer<LocalDateTime>) (value, type, context) ->
+                            new JsonPrimitive(value.toString())
+            )
+            .registerTypeAdapter(
+                    LocalDateTime.class,
+                    (JsonDeserializer<LocalDateTime>) (json, type, context) ->
+                            LocalDateTime.parse(json.getAsString())
+            )
+            .setPrettyPrinting()
+            .create();
 
     private static class DataWrapper {
         Set<User> users = new HashSet<>();

@@ -25,6 +25,11 @@ public class BackendServer {
             System.err.println("Server error: " + e.getMessage());
         }
     }
+
+    public static void main(String[] args) {
+        DatabaseManager.load();
+        new BackendServer().start();
+    }
 }
 
 class ClientHandler implements Runnable {

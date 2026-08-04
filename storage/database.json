@@ -1,4 +1,9 @@
 {
-  "admins": [],
-  "users": []
+  "users": [],
+  "admins": [
+    {
+      "username": "admin",
+      "password": "admin"
+    }
+  ]
 }
