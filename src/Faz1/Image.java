@@ -101,6 +101,10 @@ public class Image {
         }
     }
 
+    public String getPath() {
+        return path;
+    }
+
     public long getId() {
         return id;
     }
@@ -125,7 +129,7 @@ public class Image {
         return albums;
     }
 
-    public Object getDate() {
+    public LocalDateTime getDate() {
         return date;
     }
 }

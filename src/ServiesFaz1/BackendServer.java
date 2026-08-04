@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import Faz1.User;
 import Faz1.Admin;
 import Faz1.Image;
+import Faz1.Album;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -46,6 +47,7 @@ class ClientHandler implements Runnable {
         routes.put("interaction/comment", "interaction");
         routes.put("admin/users-list", "admin");
         routes.put("admin/toggle-ban", "admin");
+        routes.put("images/user-vault", "images");
     }
 
     public ClientHandler(Socket socket) {
@@ -93,6 +95,7 @@ class ClientHandler implements Runnable {
             case "interaction/comment": return handleInteractionComment(request);
             case "admin/users-list": return handleAdminUsersList(request);
             case "admin/toggle-ban": return handleAdminToggleBan(request);
+            case "images/user-vault": return handleImageGetUserVault(request);
             default: return new Response(request.getRequestId(), 404, "Route Not Found", null);
         }
     }
@@ -148,9 +151,12 @@ class ClientHandler implements Runnable {
     private Response handleImageUpload(Request request) {
         String username = (String) request.getPayload().get("username");
         String imageName = (String) request.getPayload().get("imageName");
+        String originalFileName = (String) request.getPayload().get("originalFileName");
         String imageData = (String) request.getPayload().get("imageData"); // Base64
         String caption = (String) request.getPayload().get("caption");
         List<String> tagsList = (List<String>) request.getPayload().get("tags");
+        Object albumIdRaw = request.getPayload().get("albumId");
+        Long albumId = (albumIdRaw != null) ? ((Double) albumIdRaw).longValue() : null;
         Set<String> tags = new HashSet<>(tagsList != null ? tagsList : new ArrayList<>());
 
         User user = Admin.allUsers.stream()
@@ -163,14 +169,40 @@ class ClientHandler implements Runnable {
         }
 
         try {
+            String extension = "";
+            int i = originalFileName.lastIndexOf('.');
+            if (i > 0) {
+                extension = originalFileName.substring(i + 1).toLowerCase();
+            }
+
+            List<String> allowedExtensions = Arrays.asList("jpg", "jpeg", "png", "webp", "gif");
+            if (!allowedExtensions.contains(extension)) {
+                return new Response(request.getRequestId(), 400, "Invalid File Extension", null);
+            }
+
             File dir = new File("storage/images");
             if (!dir.exists()) dir.mkdirs();
 
-            String filePath = "storage/images/" + System.currentTimeMillis() + "_" + imageName;
+            String uniqueName = UUID.randomUUID().toString() + "." + extension;
+            String filePath = "storage/images/" + uniqueName;
             byte[] imageBytes = Base64.getDecoder().decode(imageData);
             Files.write(Paths.get(filePath), imageBytes);
 
             user.uploadImage(imageName, filePath, caption, tags);
+            
+            // Find the newly created image to add it to album
+            Image newImage = user.getImages().get(user.getImages().size() - 1);
+            
+            if (albumId != null) {
+                Album targetAlbum = user.getAlbums().stream()
+                    .filter(a -> a.getId() == albumId)
+                    .findFirst()
+                    .orElse(null);
+                if (targetAlbum != null) {
+                    targetAlbum.addImageToAlbum(newImage);
+                }
+            }
+            
             DatabaseManager.save();
 
             return new Response(request.getRequestId(), 200, "Image Uploaded Successfully", new HashMap<>());
@@ -190,12 +222,9 @@ class ClientHandler implements Runnable {
                     imgMap.put("owner", user.getUsername());
                     imgMap.put("caption", img.getCaption());
                     imgMap.put("tags", img.getTags());
+                    imgMap.put("likes", user.getLikedImages().contains(img) ? 1 : 0); // Simplified
 
-                    // Gson hack to access private 'path' field without changing Phase 1 code
-                    String json = gson.toJson(img);
-                    Map<String, Object> temp = gson.fromJson(json, Map.class);
-                    String path = (String) temp.get("path");
-
+                    String path = img.getPath();
                     if (path != null) {
                         try {
                             byte[] bytes = Files.readAllBytes(Paths.get(path));
@@ -209,6 +238,70 @@ class ClientHandler implements Runnable {
             }
             Map<String, Object> data = new HashMap<>();
             data.put("images", imageList);
+            return new Response(request.getRequestId(), 200, "Success", data);
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
+        }
+    }
+
+    private Response handleImageGetUserVault(Request request) {
+        String username = (String) request.getPayload().get("username");
+        User user = Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(username))
+                .findFirst()
+                .orElse(null);
+
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+
+        try {
+            List<Map<String, Object>> items = new ArrayList<>();
+            
+            // Map Albums
+            for (Album alb : user.getAlbums()) {
+                Map<String, Object> aMap = new HashMap<>();
+                aMap.put("id", alb.getId());
+                aMap.put("name", alb.getName());
+                aMap.put("owner", username);
+                aMap.put("isFolder", true);
+                items.add(aMap);
+            }
+
+            // Map Images
+            for (Image img : user.getImages()) {
+                Map<String, Object> iMap = new HashMap<>();
+                iMap.put("id", img.getId());
+                iMap.put("name", img.getName());
+                iMap.put("owner", username);
+                iMap.put("caption", img.getCaption());
+                iMap.put("tags", img.getTags());
+                iMap.put("date", img.getDate().toString());
+                iMap.put("likes", 0); // Logic can be more complex
+                iMap.put("isFolder", false);
+                
+                // Find parent album id
+                Long parentId = null;
+                for (Album a : user.getAlbums()) {
+                    if (a.getImages().contains(img)) {
+                        parentId = a.getId();
+                        break;
+                    }
+                }
+                iMap.put("parentId", parentId);
+
+                String path = img.getPath();
+                if (path != null) {
+                    try {
+                        byte[] bytes = Files.readAllBytes(Paths.get(path));
+                        iMap.put("imageData", Base64.getEncoder().encodeToString(bytes));
+                    } catch (IOException e) {
+                        iMap.put("imageData", null);
+                    }
+                }
+                items.add(iMap);
+            }
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("items", items);
             return new Response(request.getRequestId(), 200, "Success", data);
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);

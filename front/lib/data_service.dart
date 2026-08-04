@@ -16,7 +16,9 @@ class DataService {
 
   String? currentUsername;
   bool isAdminLoggedIn = false;
-  final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
+  final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(
+    ThemeMode.system,
+  );
 
   Future<void> init() async {
     try {
@@ -33,11 +35,16 @@ class DataService {
     } catch (e) {}
   }
 
-  Future<Map<String, dynamic>?> loginUser(String username, String password) async {
-    final response = await SocketClient().sendRequest(ApiRequest(
-      route: ApiRoutes.loginUser,
-      payload: {'username': username, 'password': password},
-    ));
+  Future<Map<String, dynamic>?> loginUser(
+    String username,
+    String password,
+  ) async {
+    final response = await SocketClient().sendRequest(
+      ApiRequest(
+        route: ApiRoutes.loginUser,
+        payload: {'username': username, 'password': password},
+      ),
+    );
 
     if (response.isSuccess) {
       currentUsername = username;
@@ -52,10 +59,12 @@ class DataService {
   }
 
   Future<bool> loginAdmin(String username, String password) async {
-    final response = await SocketClient().sendRequest(ApiRequest(
-      route: ApiRoutes.loginAdmin,
-      payload: {'username': username, 'password': password},
-    ));
+    final response = await SocketClient().sendRequest(
+      ApiRequest(
+        route: ApiRoutes.loginAdmin,
+        payload: {'username': username, 'password': password},
+      ),
+    );
 
     if (response.isSuccess) {
       currentUsername = 'admin';
@@ -81,23 +90,27 @@ class DataService {
     String? email,
     String? phone,
   }) async {
-    return await SocketClient().sendRequest(ApiRequest(
-      route: ApiRoutes.register,
-      payload: {
-        'username': username,
-        'password': password,
-        'email': (email != null && email.isNotEmpty) ? email : null,
-        'phone': (phone != null && phone.isNotEmpty) ? phone : null,
-      },
-    ));
+    return await SocketClient().sendRequest(
+      ApiRequest(
+        route: ApiRoutes.register,
+        payload: {
+          'username': username,
+          'password': password,
+          'email': (email != null && email.isNotEmpty) ? email : null,
+          'phone': (phone != null && phone.isNotEmpty) ? phone : null,
+        },
+      ),
+    );
   }
 
   Future<bool> changeUsername(String oldName, String newName) async {
-    final response = await SocketClient().sendRequest(ApiRequest(
-      username: oldName,
-      route: ApiRoutes.updateProfile,
-      payload: {'username': newName},
-    ));
+    final response = await SocketClient().sendRequest(
+      ApiRequest(
+        username: oldName,
+        route: ApiRoutes.updateProfile,
+        payload: {'username': newName},
+      ),
+    );
     if (response.isSuccess) {
       currentUsername = newName;
       final prefs = await SharedPreferences.getInstance();
@@ -109,30 +122,42 @@ class DataService {
 
   Future<List<FileItem>> getAllPhotos() async {
     try {
-      final response = await SocketClient().sendRequest(ApiRequest(
-        route: ApiRoutes.getAllImages,
-        payload: {},
-      ));
+      final response = await SocketClient().sendRequest(
+        ApiRequest(route: ApiRoutes.getAllImages, payload: {}),
+      );
       if (response.isSuccess && response.data != null) {
         final List<dynamic> images = response.data['images'] ?? [];
-        return images.map((img) => _mapToItem(img, img['owner'] ?? 'Unknown', null)).toList();
+        return images
+            .map((img) => _mapToItem(img, img['owner'] ?? 'Unknown', null))
+            .toList();
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('Error getting photos in getAllPhotos: $e');
+    }
     return [];
   }
 
   Future<List<FileItem>> getVaultItems(String username) async {
     try {
-      final response = await SocketClient().sendRequest(ApiRequest(
-        username: username,
-        route: ApiRoutes.getUserVault,
-        payload: {'username': username},
-      ));
+      final response = await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.getUserVault,
+          payload: {'username': username},
+        ),
+      );
       if (response.isSuccess && response.data != null) {
         final List<dynamic> items = response.data['items'] ?? [];
-        return items.map((i) => i['isFolder'] ? _mapToFolder(i) : _mapToItem(i, username, null)).toList();
+        return items
+            .map(
+              (i) => i['isFolder']
+                  ? _mapToFolder(i)
+                  : _mapToItem(i, username, (i['parentId'] as num?)?.toInt()),
+            )
+            .toList();
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('Error getting vault items in getVaultItems: $e');
+    }
     return [];
   }
 
@@ -145,28 +170,37 @@ class DataService {
   }
 
   Future<void> deleteItem(int id) async {
-    await SocketClient().sendRequest(ApiRequest(
-      username: currentUsername,
-      route: ApiRoutes.deleteImage,
-      payload: {'id': id},
-    ));
+    await SocketClient().sendRequest(
+      ApiRequest(
+        username: currentUsername,
+        route: ApiRoutes.deleteImage,
+        payload: {'id': id},
+      ),
+    );
   }
 
   Future<void> movePhotos(List<int> photoIds, int? targetAlbumId) async {
     // This requires a route like ApiRoutes.moveImages
-    await SocketClient().sendRequest(ApiRequest(
-      username: currentUsername,
-      route: "albums/move-images",
-      payload: {'photoIds': photoIds, 'targetAlbumId': targetAlbumId},
-    ));
+    await SocketClient().sendRequest(
+      ApiRequest(
+        username: currentUsername,
+        route: "albums/move-images",
+        payload: {'photoIds': photoIds, 'targetAlbumId': targetAlbumId},
+      ),
+    );
   }
 
   Future<void> addAlbum(String username, String name) async {
-    await SocketClient().sendRequest(ApiRequest(
-      username: username,
-      route: ApiRoutes.createAlbum,
-      payload: {'albumName': name, 'username': username},
-    ));
+    try {
+      await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.createAlbum,
+          payload: {'albumName': name, 'username': username},
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error creating album in addAlbum: $e');
+    }
   }
 
   Future<void> addImage(String username, Map<String, dynamic> data) async {
@@ -175,63 +209,86 @@ class DataService {
     final bytes = await file.readAsBytes();
     final base64Image = base64Encode(bytes);
 
-    await SocketClient().sendRequest(ApiRequest(
-      route: ApiRoutes.uploadImage,
-      payload: {
-        'username': username,
-        'imageName': data['name'],
-        'imageData': base64Image,
-        'caption': data['caption'],
-        'tags': data['tags'],
-      },
-    ));
+    try {
+      await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.uploadImage,
+          payload: {
+            'username': username,
+            'imageName': data['name'],
+            'originalFileName': data['originalFileName'],
+            'imageData': base64Image,
+            'caption': data['caption'],
+            'tags': data['tags'],
+            'albumId': data['albumId'],
+          },
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error uploading image in addImage: $e');
+    }
   }
 
   Future<void> updatePhoto(int id, String? caption, List<String>? tags) async {
-    await SocketClient().sendRequest(ApiRequest(
-      username: currentUsername,
-      route: "images/update",
-      payload: {'id': id, 'caption': caption, 'tags': tags},
-    ));
+    try {
+      await SocketClient().sendRequest(
+        ApiRequest(
+          route: "images/update",
+          payload: {'id': id, 'caption': caption, 'tags': tags},
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error updating photo in updatePhoto: $e');
+    }
   }
 
   Future<void> toggleLike(int photoId) async {
-    await SocketClient().sendRequest(ApiRequest(
-      username: currentUsername,
-      route: ApiRoutes.likeImage,
-      payload: {'imageId': photoId, 'username': currentUsername},
-    ));
+    try {
+      await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.likeImage,
+          payload: {'imageId': photoId, 'username': currentUsername},
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error toggling like in toggleLike: $e');
+    }
   }
 
   Future<void> addComment(int photoId, String username, String text) async {
-    await SocketClient().sendRequest(ApiRequest(
-      username: username,
-      route: ApiRoutes.addComment,
-      payload: {'imageId': photoId, 'text': text, 'username': username},
-    ));
+    try {
+      await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.addComment,
+          payload: {'imageId': photoId, 'text': text, 'username': username},
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error adding comment in addComment: $e');
+    }
   }
 
   Future<void> deleteAccount(String username) async {
-    final response = await SocketClient().sendRequest(ApiRequest(
-      username: username,
-      route: ApiRoutes.deleteAccount,
-      payload: {},
-    ));
+    final response = await SocketClient().sendRequest(
+      ApiRequest(
+        username: username,
+        route: ApiRoutes.deleteAccount,
+        payload: {},
+      ),
+    );
     if (response.isSuccess) await logout();
   }
 
   Future<void> toggleBan(String username) async {
-    await SocketClient().sendRequest(ApiRequest(
-      route: ApiRoutes.toggleBan,
-      payload: {'username': username},
-    ));
+    await SocketClient().sendRequest(
+      ApiRequest(route: ApiRoutes.toggleBan, payload: {'username': username}),
+    );
   }
 
   Future<List<Map<String, dynamic>>> adminGetUsersList() async {
-    final response = await SocketClient().sendRequest(ApiRequest(
-      route: ApiRoutes.adminUsersList,
-      payload: {},
-    ));
+    final response = await SocketClient().sendRequest(
+      ApiRequest(route: ApiRoutes.adminUsersList, payload: {}),
+    );
     if (response.isSuccess && response.data != null) {
       return List<Map<String, dynamic>>.from(response.data['users'] ?? []);
     }
@@ -239,6 +296,7 @@ class DataService {
   }
 
   FileItem _mapToItem(Map<String, dynamic> img, String owner, int? parentId) {
+    final String? encodedImage = img['imageData'] as String?;
     return FileItem(
       id: (img['id'] as num).toInt(),
       name: img['name'] ?? '',
@@ -249,6 +307,9 @@ class DataService {
       likes: (img['likes'] as num?)?.toInt() ?? 0,
       date: DateTime.tryParse(img['date'] ?? '') ?? DateTime.now(),
       tags: img['tags'] != null ? List<String>.from(img['tags']) : [],
+      imageBytes: encodedImage == null || encodedImage.isEmpty
+          ? null
+          : base64Decode(encodedImage),
     );
   }
 

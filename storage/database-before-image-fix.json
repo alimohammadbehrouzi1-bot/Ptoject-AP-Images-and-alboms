@@ -15,13 +15,20 @@
       "password": "admin"
     }
   ],
-  "albums": [],
+  "albums": [
+    {
+      "id": 50759,
+      "name": "bb",
+      "ownerUsername": "mahan1234",
+      "imageIds": []
+    }
+  ],
   "images": [
     {
-      "id": 42048,
-      "name": "image1",
-      "path": "storage/images/bc9b7e2d-09e5-4b66-bbda-2a07025edb40.png",
-      "date": "2026-08-05T00:38:18.189457700",
+      "id": 40905,
+      "name": "a",
+      "path": "storage/images/1785875929490_a",
+      "date": "2026-08-05T00:08:49.538473",
       "caption": "",
       "tags": [],
       "ownerUsername": "mahan1234",

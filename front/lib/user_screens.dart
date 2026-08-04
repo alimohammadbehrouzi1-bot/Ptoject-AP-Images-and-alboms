@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import 'data_service.dart';
 import 'auth_screens.dart';
 
@@ -9,6 +10,7 @@ class FileItem {
   final String name;
   final bool isFolder;
   final String ownerName;
+  final Uint8List? imageBytes;
   int? parentId;
   String? caption;
   List<String>? tags;
@@ -22,6 +24,7 @@ class FileItem {
     required this.name,
     required this.isFolder,
     this.ownerName = "Me",
+    this.imageBytes,
     this.parentId,
     this.caption,
     this.tags,
@@ -125,7 +128,9 @@ class HomePage extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data == null || snapshot.data!.isEmpty) {
+          if (!snapshot.hasData ||
+              snapshot.data == null ||
+              snapshot.data!.isEmpty) {
             return const Center(child: Text('No photos yet'));
           }
           final List<FileItem> allPhotos = snapshot.data ?? [];
@@ -167,8 +172,26 @@ class HomePage extends StatelessWidget {
                               top: Radius.circular(16),
                             ),
                           ),
-                          child: const Center(
-                            child: Icon(Icons.image, size: 40, color: Colors.blue),
+                          child: Center(
+                            child: item.imageBytes != null
+                                ? ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(16),
+                                    ),
+                                    child: Image.memory(
+                                      item.imageBytes!,
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Icon(Icons.broken_image),
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.image,
+                                    size: 40,
+                                    color: Colors.blue,
+                                  ),
                           ),
                         ),
                       ),
@@ -179,7 +202,9 @@ class HomePage extends StatelessWidget {
                           children: [
                             Text(
                               item.name,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -239,7 +264,7 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
 
   void _handleSearch(String query) async {
     if (query.isEmpty) return;
-    
+
     final items = await DataService().getVaultItems(query);
     if (items.isNotEmpty && mounted) {
       setState(() {
@@ -251,9 +276,9 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
         _loadMore();
       });
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not found')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('User not found')));
     }
   }
 
@@ -396,17 +421,31 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
                             borderRadius: BorderRadius.circular(24),
                           ),
                           child: Center(
-                            child: Icon(
-                              item.isFolder
-                                  ? Icons.folder_rounded
-                                  : Icons.image_rounded,
-                              size: 48,
-                              color: item.isFolder
-                                  ? Colors.blue.withValues(alpha: 0.5)
-                                  : Theme.of(
+                            child: item.isFolder
+                                ? Icon(
+                                    Icons.folder_rounded,
+                                    size: 48,
+                                    color: Colors.blue.withValues(alpha: 0.5),
+                                  )
+                                : item.imageBytes != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(24),
+                                    child: Image.memory(
+                                      item.imageBytes!,
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Icon(Icons.broken_image),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.image_rounded,
+                                    size: 48,
+                                    color: Theme.of(
                                       context,
                                     ).colorScheme.outlineVariant,
-                            ),
+                                  ),
                           ),
                         ),
                       ),
@@ -462,7 +501,9 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
   }
 
   Future<void> _refresh() async {
-    final List<FileItem> items = await DataService().getVaultItems(widget.username);
+    final List<FileItem> items = await DataService().getVaultItems(
+      widget.username,
+    );
     setState(() {
       _allVaultItems = items;
       _visibleItems.clear();
@@ -685,17 +726,31 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
                             ),
                           ),
                           child: Center(
-                            child: Icon(
-                              item.isFolder
-                                  ? Icons.folder_rounded
-                                  : Icons.image_rounded,
-                              size: 48,
-                              color: item.isFolder
-                                  ? Colors.blue.withValues(alpha: 0.5)
-                                  : Theme.of(
+                            child: item.isFolder
+                                ? Icon(
+                                    Icons.folder_rounded,
+                                    size: 48,
+                                    color: Colors.blue.withValues(alpha: 0.5),
+                                  )
+                                : item.imageBytes != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(24),
+                                    child: Image.memory(
+                                      item.imageBytes!,
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Icon(Icons.broken_image),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.image_rounded,
+                                    size: 48,
+                                    color: Theme.of(
                                       context,
                                     ).colorScheme.outlineVariant,
-                            ),
+                                  ),
                           ),
                         ),
                       ),
@@ -972,11 +1027,16 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
                       color: Theme.of(
                         context,
                       ).colorScheme.surfaceContainerHighest,
-                      child: const Icon(
-                        Icons.image,
-                        size: 80,
-                        color: Colors.blue,
-                      ),
+                      child: widget.item.imageBytes != null
+                          ? Image.memory(
+                              widget.item.imageBytes!,
+                              fit: BoxFit.contain,
+                            )
+                          : const Icon(
+                              Icons.image,
+                              size: 80,
+                              color: Colors.blue,
+                            ),
                     ),
                   ),
                   Padding(
@@ -1215,7 +1275,7 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final likedFuture = DataService().getAllPhotos();
-    
+
     return Scaffold(
       appBar: AppBar(title: const Text('Profile Settings')),
       body: FutureBuilder<List<FileItem>>(
@@ -1263,11 +1323,12 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                       trailing: Switch(
                         value:
                             DataService().themeNotifier.value == ThemeMode.dark,
-                        onChanged:
-                            (v) => setState(() => DataService().toggleTheme(v)),
+                        onChanged: (v) =>
+                            setState(() => DataService().toggleTheme(v)),
                       ),
-                      tileColor:
-                          Theme.of(context).colorScheme.surfaceContainerLow,
+                      tileColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerLow,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1277,8 +1338,9 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                       leading: const Icon(Icons.edit_outlined),
                       title: const Text('Change Username'),
                       onTap: _showChangeName,
-                      tileColor:
-                          Theme.of(context).colorScheme.surfaceContainerLow,
+                      tileColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerLow,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1288,8 +1350,9 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                       leading: const Icon(Icons.lock_outline),
                       title: const Text('Change Password'),
                       onTap: _showChangePassword,
-                      tileColor:
-                          Theme.of(context).colorScheme.surfaceContainerLow,
+                      tileColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerLow,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1299,8 +1362,9 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                       leading: const Icon(Icons.share_outlined),
                       title: const Text('Sharing & Access'),
                       onTap: _showSharingSettings,
-                      tileColor:
-                          Theme.of(context).colorScheme.surfaceContainerLow,
+                      tileColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerLow,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1336,57 +1400,51 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                     liked.isEmpty
                         ? const Text('No likes yet')
                         : GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10,
-                              ),
-                          itemCount: liked.length,
-                          itemBuilder:
-                              (context, i) => InkWell(
-                                onTap:
-                                    () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (_) => ImageDetailScreen(
-                                              item: liked[i],
-                                              username: widget.username,
-                                              isReadOnly: true,
-                                            ),
-                                      ),
-                                    ),
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.surfaceContainerHighest,
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.image,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      liked[i].name,
-                                      style: const TextStyle(fontSize: 10),
-                                    ),
-                                  ],
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                ),
+                            itemCount: liked.length,
+                            itemBuilder: (context, i) => InkWell(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ImageDetailScreen(
+                                    item: liked[i],
+                                    username: widget.username,
+                                    isReadOnly: true,
+                                  ),
                                 ),
                               ),
-                        ),
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.image,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    liked[i].name,
+                                    style: const TextStyle(fontSize: 10),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                   ],
                 ),
               );
@@ -1398,14 +1456,14 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
   }
 
   Widget _statItem(String label, int count) => Column(
-        children: [
-          Text(
-            count.toString(),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        ],
-      );
+    children: [
+      Text(
+        count.toString(),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+      Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+    ],
+  );
 
   void _showSharingSettings() {
     showModalBottomSheet(
@@ -1569,6 +1627,7 @@ class _UploadImageScreenState extends State<UploadImageScreen> {
   final List<String> tags = [];
   int? selectedAlbumId;
   File? _imageFile;
+  String? _originalFileName;
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage(ImageSource source) async {
@@ -1576,6 +1635,7 @@ class _UploadImageScreenState extends State<UploadImageScreen> {
     if (image != null) {
       setState(() {
         _imageFile = File(image.path);
+        _originalFileName = image.name;
       });
     }
   }
@@ -1690,6 +1750,7 @@ class _UploadImageScreenState extends State<UploadImageScreen> {
                     'tags': tags,
                     'albumId': selectedAlbumId,
                     'imageFile': _imageFile,
+                    'originalFileName': _originalFileName,
                   });
                 }
               },
