@@ -39,6 +39,8 @@ class ClientHandler implements Runnable {
         routes.put("album/create", "album");
         routes.put("interaction/like", "interaction");
         routes.put("interaction/comment", "interaction");
+        routes.put("admin/users-list", "admin");
+        routes.put("admin/toggle-ban", "admin");
     }
 
     public ClientHandler(Socket socket) {
@@ -84,6 +86,8 @@ class ClientHandler implements Runnable {
             case "album/create": return handleAlbumCreate(request);
             case "interaction/like": return handleInteractionLike(request);
             case "interaction/comment": return handleInteractionComment(request);
+            case "admin/users-list": return handleAdminUsersList(request);
+            case "admin/toggle-ban": return handleAdminToggleBan(request);
             default: return new Response(request.getRequestId(), 404, "Route Not Found", null);
         }
     }
@@ -288,6 +292,44 @@ class ClientHandler implements Runnable {
             user.writeComment(targetImage, text);
             DatabaseManager.save();
             return new Response(request.getRequestId(), 200, "Comment Added Successfully", new HashMap<>());
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
+        }
+    }
+
+    private Response handleAdminUsersList(Request request) {
+        try {
+            List<Map<String, Object>> userList = new ArrayList<>();
+            for (User u : Admin.allUsers) {
+                Map<String, Object> uMap = new HashMap<>();
+                uMap.put("username", u.getUsername());
+                uMap.put("isBanned", u.isBanned());
+                uMap.put("photoCount", u.getImages().size());
+                uMap.put("albumCount", u.getAlbums().size());
+                userList.add(uMap);
+            }
+            Map<String, Object> data = new HashMap<>();
+            data.put("users", userList);
+            return new Response(request.getRequestId(), 200, "Success", data);
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
+        }
+    }
+
+    private Response handleAdminToggleBan(Request request) {
+        String targetUsername = (String) request.getPayload().get("username");
+
+        User user = Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(targetUsername))
+                .findFirst()
+                .orElse(null);
+
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+
+        try {
+            user.setBanned(!user.isBanned());
+            DatabaseManager.save();
+            return new Response(request.getRequestId(), 200, "User Ban Status Toggled", new HashMap<>());
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
         }
