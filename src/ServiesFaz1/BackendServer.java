@@ -36,6 +36,9 @@ class ClientHandler implements Runnable {
         routes.put("auth/login", "auth");
         routes.put("auth/register", "auth");
         routes.put("admin/login", "admin");
+        routes.put("album/create", "album");
+        routes.put("interaction/like", "interaction");
+        routes.put("interaction/comment", "interaction");
     }
 
     public ClientHandler(Socket socket) {
@@ -78,6 +81,9 @@ class ClientHandler implements Runnable {
             case "admin/login": return handleAdminLogin(request);
             case "image/upload": return handleImageUpload(request);
             case "image/get-all": return handleImageGetAll(request);
+            case "album/create": return handleAlbumCreate(request);
+            case "interaction/like": return handleInteractionLike(request);
+            case "interaction/comment": return handleInteractionComment(request);
             default: return new Response(request.getRequestId(), 404, "Route Not Found", null);
         }
     }
@@ -195,6 +201,93 @@ class ClientHandler implements Runnable {
             Map<String, Object> data = new HashMap<>();
             data.put("images", imageList);
             return new Response(request.getRequestId(), 200, "Success", data);
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
+        }
+    }
+
+    private Response handleAlbumCreate(Request request) {
+        String username = (String) request.getPayload().get("username");
+        String albumName = (String) request.getPayload().get("albumName");
+
+        User user = Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(username))
+                .findFirst()
+                .orElse(null);
+
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+
+        try {
+            user.makeNewAlbum(albumName);
+            DatabaseManager.save();
+            return new Response(request.getRequestId(), 200, "Album Created Successfully", new HashMap<>());
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
+        }
+    }
+
+    private Response handleInteractionLike(Request request) {
+        String username = (String) request.getPayload().get("username");
+        long imageId = ((Double) request.getPayload().get("imageId")).longValue();
+
+        User user = Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(username))
+                .findFirst()
+                .orElse(null);
+
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+
+        Image targetImage = null;
+        for (User u : Admin.allUsers) {
+            for (Image img : u.getImages()) {
+                if (img.getId() == imageId) {
+                    targetImage = img;
+                    break;
+                }
+            }
+            if (targetImage != null) break;
+        }
+
+        if (targetImage == null) return new Response(request.getRequestId(), 404, "Image Not Found", null);
+
+        try {
+            user.addOrRemoveLikeImage(targetImage);
+            DatabaseManager.save();
+            return new Response(request.getRequestId(), 200, "Like Interaction Success", new HashMap<>());
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
+        }
+    }
+
+    private Response handleInteractionComment(Request request) {
+        String username = (String) request.getPayload().get("username");
+        long imageId = ((Double) request.getPayload().get("imageId")).longValue();
+        String text = (String) request.getPayload().get("text");
+
+        User user = Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(username))
+                .findFirst()
+                .orElse(null);
+
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+
+        Image targetImage = null;
+        for (User u : Admin.allUsers) {
+            for (Image img : u.getImages()) {
+                if (img.getId() == imageId) {
+                    targetImage = img;
+                    break;
+                }
+            }
+            if (targetImage != null) break;
+        }
+
+        if (targetImage == null) return new Response(request.getRequestId(), 404, "Image Not Found", null);
+
+        try {
+            user.writeComment(targetImage, text);
+            DatabaseManager.save();
+            return new Response(request.getRequestId(), 200, "Comment Added Successfully", new HashMap<>());
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
         }
