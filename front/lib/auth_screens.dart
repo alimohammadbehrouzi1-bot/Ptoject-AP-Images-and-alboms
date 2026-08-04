@@ -25,7 +25,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login(bool isAdmin) async {
-    if (_formKey.currentState!.validate()) {
+    final FormState? form = _formKey.currentState;
+    if (form != null && form.validate()) {
       final username = _usernameController.text.trim();
       final password = _passwordController.text.trim();
 
@@ -116,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
-                    validator: (v) => v!.isEmpty ? 'Required' : null,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -200,20 +201,22 @@ class _SignupScreenState extends State<SignupScreen> {
   final _phC = TextEditingController();
 
   Future<void> _submit() async {
-    if (_formKey.currentState!.validate()) {
+    final FormState? form = _formKey.currentState;
+    if (form != null && form.validate()) {
       if (_eC.text.isEmpty && _phC.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('At least Email or Phone is required')),
         );
         return;
       }
-      bool success = await DataService().registerUser(
+      final response = await DataService().registerUser(
         username: _uC.text.trim(),
         password: _pC.text.trim(),
         email: _eC.text.trim(),
         phone: _phC.text.trim(),
       );
-      if (success) {
+
+      if (response.isSuccess) {
         // Auto-Login after registration
         await DataService().loginUser(_uC.text.trim(), _pC.text.trim());
         if (mounted) {
@@ -228,7 +231,7 @@ class _SignupScreenState extends State<SignupScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Username already exists')),
+            SnackBar(content: Text(response.message ?? 'Registration Failed')),
           );
         }
       }
@@ -251,7 +254,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   labelText: 'Username *',
                   prefixIcon: Icon(Icons.person),
                 ),
-                validator: (v) => v!.isEmpty ? 'Username is required' : null,
+                validator: (v) => (v == null || v.isEmpty) ? 'Username is required' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(

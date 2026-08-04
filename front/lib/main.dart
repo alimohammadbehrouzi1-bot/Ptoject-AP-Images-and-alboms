@@ -40,7 +40,7 @@ class PhotoSocialApp extends StatelessWidget {
           home: DataService().currentUsername != null
               ? (DataService().currentUsername == 'admin'
                     ? const AdminDashboard()
-                    : MainNavigation(username: DataService().currentUsername!))
+                    : MainNavigation(username: DataService().currentUsername ?? ''))
               : const LoginScreen(),
         );
       },

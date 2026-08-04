@@ -125,10 +125,10 @@ class HomePage extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          if (!snapshot.hasData || snapshot.data == null || snapshot.data!.isEmpty) {
             return const Center(child: Text('No photos yet'));
           }
-          final allPhotos = snapshot.data!;
+          final List<FileItem> allPhotos = snapshot.data ?? [];
           return GridView.builder(
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -237,17 +237,31 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
     });
   }
 
-  void _handleSearch(String query) {
+  void _handleSearch(String query) async {
     if (query.isEmpty) return;
-    // Search is currently disabled while switching to Server-side logic
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Search via server not implemented yet')),
-    );
+    
+    final items = await DataService().getVaultItems(query);
+    if (items.isNotEmpty && mounted) {
+      setState(() {
+        _foundUsername = query;
+        _userItems = items;
+        _currentAlbum = null;
+        _visibleItems.clear();
+        _isLastPage = false;
+        _loadMore();
+      });
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not found')),
+      );
+    }
   }
 
-  void _refreshData() {
-    if (_foundUsername == null) return;
-    _userItems = DataService().getVaultItems(_foundUsername!);
+  Future<void> _refreshData() async {
+    final String? foundName = _foundUsername;
+    if (foundName != null) {
+      _userItems = await DataService().getVaultItems(foundName);
+    }
     _visibleItems.clear();
     _isLastPage = false;
     _loadMore();
@@ -295,7 +309,7 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
                 ),
               )
             : Text(
-                _foundUsername!,
+                _foundUsername ?? '',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
         leading: _currentAlbum != null
@@ -349,8 +363,9 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
               ),
               itemCount: _visibleItems.length + (_isLastPage ? 0 : 2),
               itemBuilder: (context, i) {
-                if (i >= _visibleItems.length)
+                if (i >= _visibleItems.length) {
                   return const SizedBox(height: 50);
+                }
                 final item = _visibleItems[i];
                 return InkWell(
                   onTap: () {
@@ -446,11 +461,14 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
     });
   }
 
-  void _refresh() {
-    _allVaultItems = DataService().getVaultItems(widget.username);
-    _visibleItems.clear();
-    _isLastPage = false;
-    _loadMore();
+  Future<void> _refresh() async {
+    final List<FileItem> items = await DataService().getVaultItems(widget.username);
+    setState(() {
+      _allVaultItems = items;
+      _visibleItems.clear();
+      _isLastPage = false;
+      _loadMore();
+    });
   }
 
   void _loadMore() {
@@ -471,27 +489,32 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
     if (_searchQ.isNotEmpty) {
       final q = _searchQ.toLowerCase();
       return _allVaultItems.where((item) {
-        if (q.startsWith('#'))
+        if (q.startsWith('#')) {
           return !item.isFolder &&
               (item.tags?.any(
                     (t) => t.toLowerCase().contains(q.substring(1)),
                   ) ??
                   false);
-        if (_filters.isEmpty)
+        }
+        if (_filters.isEmpty) {
           return item.name.toLowerCase().contains(q) ||
               (!item.isFolder &&
                   (item.caption?.toLowerCase().contains(q) ?? false));
+        }
         bool m = false;
-        if (_filters.contains('Name') && item.name.toLowerCase().contains(q))
+        if (_filters.contains('Name') && item.name.toLowerCase().contains(q)) {
           m = true;
+        }
         if (_filters.contains('Caption') &&
             !item.isFolder &&
-            (item.caption?.toLowerCase().contains(q) ?? false))
+            (item.caption?.toLowerCase().contains(q) ?? false)) {
           m = true;
+        }
         if (_filters.contains('Tags') &&
             !item.isFolder &&
-            (item.tags?.any((t) => t.toLowerCase().contains(q)) ?? false))
+            (item.tags?.any((t) => t.toLowerCase().contains(q)) ?? false)) {
           m = true;
+        }
         return m;
       }).toList();
     }
@@ -622,8 +645,9 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
               ),
               itemCount: _visibleItems.length + (_isLastPage ? 0 : 2),
               itemBuilder: (context, i) {
-                if (i >= _visibleItems.length)
+                if (i >= _visibleItems.length) {
                   return const SizedBox(height: 50);
+                }
                 final item = _visibleItems[i];
                 bool sel = _selectedIds.contains(item.id);
                 return InkWell(
@@ -1190,170 +1214,198 @@ class ProfileDetailScreen extends StatefulWidget {
 class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
   @override
   Widget build(BuildContext context) {
-    final liked = DataService().getAllPhotos().where((p) => p.isLiked).toList();
-    final stats = DataService().getUserStats(widget.username);
-
+    final likedFuture = DataService().getAllPhotos();
+    
     return Scaffold(
       appBar: AppBar(title: const Text('Profile Settings')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 50,
-              child: Text(
-                widget.username[0].toUpperCase(),
-                style: const TextStyle(fontSize: 32),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              widget.username,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _statItem('Photos', stats['photos']!),
-                const SizedBox(width: 24),
-                _statItem('Albums', stats['albums']!),
-              ],
-            ),
-            const SizedBox(height: 32),
-            ListTile(
-              leading: const Icon(Icons.dark_mode_outlined),
-              title: const Text('Dark Mode'),
-              trailing: Switch(
-                value: DataService().themeNotifier.value == ThemeMode.dark,
-                onChanged: (v) => setState(() => DataService().toggleTheme(v)),
-              ),
-              tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('Change Username'),
-              onTap: _showChangeName,
-              tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              leading: const Icon(Icons.lock_outline),
-              title: const Text('Change Password'),
-              onTap: _showChangePassword,
-              tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              leading: const Icon(Icons.share_outlined),
-              title: const Text('Sharing & Access'),
-              onTap: _showSharingSettings,
-              tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              leading: const Icon(
-                Icons.delete_forever_outlined,
-                color: Colors.red,
-              ),
-              title: const Text(
-                'Delete Account',
-                style: TextStyle(color: Colors.red),
-              ),
-              onTap: _showDeleteConfirm,
-              tileColor: Colors.red.withValues(alpha: 0.1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            const Divider(height: 64),
-            Row(
-              children: [
-                const Icon(Icons.favorite, color: Colors.red),
-                const SizedBox(width: 8),
-                Text(
-                  'Liked Photos (${liked.length})',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            liked.isEmpty
-                ? const Text('No likes yet')
-                : GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                        ),
-                    itemCount: liked.length,
-                    itemBuilder: (context, i) => InkWell(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ImageDetailScreen(
-                            item: liked[i],
-                            username: widget.username,
-                            isReadOnly: true,
-                          ),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.image,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            liked[i].name,
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                        ],
+      body: FutureBuilder<List<FileItem>>(
+        future: likedFuture,
+        builder: (context, snapshot) {
+          final liked = snapshot.data?.where((p) => p.isLiked).toList() ?? [];
+
+          return FutureBuilder<Map<String, int>>(
+            future: DataService().getUserStats(widget.username),
+            builder: (context, statsSnapshot) {
+              final stats = statsSnapshot.data ?? {'photos': 0, 'albums': 0};
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      child: Text(
+                        widget.username[0].toUpperCase(),
+                        style: const TextStyle(fontSize: 32),
                       ),
                     ),
-                  ),
-          ],
-        ),
+                    const SizedBox(height: 16),
+                    Text(
+                      widget.username,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _statItem('Photos', stats['photos'] ?? 0),
+                        const SizedBox(width: 24),
+                        _statItem('Albums', stats['albums'] ?? 0),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    ListTile(
+                      leading: const Icon(Icons.dark_mode_outlined),
+                      title: const Text('Dark Mode'),
+                      trailing: Switch(
+                        value:
+                            DataService().themeNotifier.value == ThemeMode.dark,
+                        onChanged:
+                            (v) => setState(() => DataService().toggleTheme(v)),
+                      ),
+                      tileColor:
+                          Theme.of(context).colorScheme.surfaceContainerLow,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      leading: const Icon(Icons.edit_outlined),
+                      title: const Text('Change Username'),
+                      onTap: _showChangeName,
+                      tileColor:
+                          Theme.of(context).colorScheme.surfaceContainerLow,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      leading: const Icon(Icons.lock_outline),
+                      title: const Text('Change Password'),
+                      onTap: _showChangePassword,
+                      tileColor:
+                          Theme.of(context).colorScheme.surfaceContainerLow,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      leading: const Icon(Icons.share_outlined),
+                      title: const Text('Sharing & Access'),
+                      onTap: _showSharingSettings,
+                      tileColor:
+                          Theme.of(context).colorScheme.surfaceContainerLow,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.delete_forever_outlined,
+                        color: Colors.red,
+                      ),
+                      title: const Text(
+                        'Delete Account',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      onTap: _showDeleteConfirm,
+                      tileColor: Colors.red.withValues(alpha: 0.1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    const Divider(height: 64),
+                    Row(
+                      children: [
+                        const Icon(Icons.favorite, color: Colors.red),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Liked Photos (${liked.length})',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    liked.isEmpty
+                        ? const Text('No likes yet')
+                        : GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                              ),
+                          itemCount: liked.length,
+                          itemBuilder:
+                              (context, i) => InkWell(
+                                onTap:
+                                    () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (_) => ImageDetailScreen(
+                                              item: liked[i],
+                                              username: widget.username,
+                                              isReadOnly: true,
+                                            ),
+                                      ),
+                                    ),
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.surfaceContainerHighest,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.image,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      liked[i].name,
+                                      style: const TextStyle(fontSize: 10),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                        ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
 
   Widget _statItem(String label, int count) => Column(
-    children: [
-      Text(
-        count.toString(),
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-      Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-    ],
-  );
+        children: [
+          Text(
+            count.toString(),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        ],
+      );
 
   void _showSharingSettings() {
     showModalBottomSheet(
@@ -1403,14 +1455,16 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
         content: TextField(controller: c),
         actions: [
           ElevatedButton(
-            onPressed: () {
-              if (DataService().changeUsername(widget.username, c.text)) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => MainNavigation(username: c.text),
-                  ),
-                  (r) => false,
-                );
+            onPressed: () async {
+              if (await DataService().changeUsername(widget.username, c.text)) {
+                if (mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (_) => MainNavigation(username: c.text),
+                    ),
+                    (r) => false,
+                  );
+                }
               }
             },
             child: const Text('Change'),
@@ -1578,7 +1632,7 @@ class _UploadImageScreenState extends State<UploadImageScreen> {
             const SizedBox(height: 16),
             DropdownButtonFormField<int>(
               decoration: const InputDecoration(labelText: 'Target Album'),
-              value: selectedAlbumId,
+              initialValue: selectedAlbumId,
               items: [
                 const DropdownMenuItem(
                   value: null,
