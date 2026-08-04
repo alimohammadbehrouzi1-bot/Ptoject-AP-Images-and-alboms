@@ -27,42 +27,51 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   @override
   Widget build(BuildContext context) {
-    final allUsers = DataService().rawUsers;
-    final bannedUsers = allUsers.where((u) => u['isBanned'] == true).toList();
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: DataService().adminGetUsersList(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        final allUsers = snapshot.data ?? [];
+        final bannedUsers = allUsers.where((u) => u['isBanned'] == true).toList();
 
-    return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        title: const Text(
-          'Admin Console',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'All Users'),
-            Tab(text: 'Banned'),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.admin_panel_settings),
-            onPressed: () => _showAdminSheet(),
+        return Scaffold(
+          appBar: AppBar(
+            elevation: 0,
+            title: const Text(
+              'Admin Console',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            bottom: TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(text: 'All Users'),
+                Tab(text: 'Banned'),
+              ],
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.admin_panel_settings),
+                onPressed: () => _showAdminSheet(),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [_buildUserList(allUsers), _buildUserList(bannedUsers)],
-      ),
+          body: TabBarView(
+            controller: _tabController,
+            children: [_buildUserList(allUsers), _buildUserList(bannedUsers)],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildUserList(List<dynamic> users) {
-    if (users.isEmpty)
+  Widget _buildUserList(List<Map<String, dynamic>> users) {
+    if (users.isEmpty) {
       return const Center(
         child: Text('No users found', style: TextStyle(color: Colors.grey)),
       );
+    }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: users.length,
@@ -86,9 +95,13 @@ class _AdminDashboardState extends State<AdminDashboard>
               u['username'],
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
+            subtitle: Text('Photos: ${u['photoCount']} | Albums: ${u['albumCount']}'),
             trailing: Switch(
               value: !isB,
-              onChanged: (v) => _handleBanToggle(u['username']),
+              onChanged: (v) async {
+                await DataService().toggleBan(u['username']);
+                setState(() {}); // Refresh to call adminGetUsersList again
+              },
             ),
             onTap: () => _showUserDetail(u),
           ),

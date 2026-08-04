@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/network/api_request.dart';
@@ -11,8 +13,6 @@ class DataService {
   factory DataService() => _instance;
   DataService._internal();
 
-  List<dynamic> rawUsers = [];
-  List<dynamic> rawAdmins = [];
   String? currentUsername;
   bool isAdminLoggedIn = false;
 
@@ -127,19 +127,150 @@ class DataService {
     return true;
   }
 
-  // Stubs for remaining methods - these will be connected to Socket in future phases
-  List<FileItem> getAllPhotos() => [];
+  Future<List<FileItem>> getAllPhotos() async {
+    final request = ApiRequest(
+      route: ApiRoutes.getAllImages,
+      payload: {},
+    );
+
+    try {
+      final response = await SocketClient().sendRequest(request);
+      if (response.isSuccess && response.data != null) {
+        final List<dynamic> images = response.data['images'] ?? [];
+        return images.map((img) {
+          // imageData is Base64 from server
+          return FileItem(
+            id: (img['id'] as num).toInt(),
+            name: img['name'] ?? 'Untitled',
+            isFolder: false,
+            ownerName: img['owner'] ?? 'Unknown',
+            caption: img['caption'],
+            tags: List<String>.from(img['tags'] ?? []),
+            date: DateTime.now(), // Server should provide date ideally
+          );
+        }).toList();
+      }
+    } catch (e) {
+      debugPrint('Error getting photos: $e');
+    }
+    return [];
+  }
+
+  Future<void> addImage(String username, Map<String, dynamic> data) async {
+    final File? file = data['imageFile'];
+    if (file == null) return;
+
+    final bytes = await file.readAsBytes();
+    final base64Image = base64Encode(bytes);
+
+    final request = ApiRequest(
+      route: ApiRoutes.uploadImage,
+      payload: {
+        'username': username,
+        'imageName': data['name'],
+        'imageData': base64Image,
+        'caption': data['caption'],
+        'tags': data['tags'],
+      },
+    );
+
+    try {
+      await SocketClient().sendRequest(request);
+    } catch (e) {
+      debugPrint('Error uploading image: $e');
+    }
+  }
+
+  Future<void> addAlbum(String username, String name) async {
+    final request = ApiRequest(
+      route: ApiRoutes.createAlbum,
+      payload: {
+        'username': username,
+        'albumName': name,
+      },
+    );
+
+    try {
+      await SocketClient().sendRequest(request);
+    } catch (e) {
+      debugPrint('Error creating album: $e');
+    }
+  }
+
+  Future<void> toggleLike(int photoId) async {
+    if (currentUsername == null) return;
+    
+    final request = ApiRequest(
+      route: ApiRoutes.likeImage,
+      payload: {
+        'username': currentUsername!,
+        'imageId': photoId,
+      },
+    );
+
+    try {
+      await SocketClient().sendRequest(request);
+    } catch (e) {
+      debugPrint('Error toggling like: $e');
+    }
+  }
+
+  Future<void> addComment(int photoId, String username, String text) async {
+    final request = ApiRequest(
+      route: ApiRoutes.addComment,
+      payload: {
+        'username': username,
+        'imageId': photoId,
+        'text': text,
+      },
+    );
+
+    try {
+      await SocketClient().sendRequest(request);
+    } catch (e) {
+      debugPrint('Error adding comment: $e');
+    }
+  }
+
+  Future<void> toggleBan(String username) async {
+    final request = ApiRequest(
+      route: ApiRoutes.toggleBan,
+      payload: {
+        'username': username,
+      },
+    );
+
+    try {
+      await SocketClient().sendRequest(request);
+    } catch (e) {
+      debugPrint('Error toggling ban: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> adminGetUsersList() async {
+    final request = ApiRequest(
+      route: ApiRoutes.adminUsersList,
+      payload: {},
+    );
+
+    try {
+      final response = await SocketClient().sendRequest(request);
+      if (response.isSuccess && response.data != null) {
+        return List<Map<String, dynamic>>.from(response.data['users'] ?? []);
+      }
+    } catch (e) {
+      debugPrint('Error getting admin users list: $e');
+    }
+    return [];
+  }
+
+  // Temporary stubs for remaining items (can be implemented as needed)
   List<FileItem> getVaultItems(String username) => [];
   Map<String, int> getUserStats(String username) => {'photos': 0, 'albums': 0};
   void deleteItem(int id) {}
   void movePhotos(List<int> photoIds, int? targetAlbumId) {}
-  void addAlbum(String username, String name) {}
-  void addImage(String username, Map<String, dynamic> data) {}
   void updatePhoto(int id, String? caption, List<String>? tags) {}
-  void toggleLike(int photoId) {}
-  void addComment(int photoId, String username, String text) {}
   void deleteAccount(String username) {}
-  void toggleBan(String username) {}
 
   void toggleTheme(bool isDark) async {
     themeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;

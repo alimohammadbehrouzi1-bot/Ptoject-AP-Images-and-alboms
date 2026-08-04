@@ -111,7 +111,6 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final allPhotos = DataService().getAllPhotos();
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
@@ -120,75 +119,87 @@ class HomePage extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 0.8,
-        ),
-        itemCount: allPhotos.length,
-        itemBuilder: (context, index) {
-          final item = allPhotos[index];
-          return InkWell(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ImageDetailScreen(
-                  item: item,
-                  username: username,
-                  isReadOnly: item.ownerName != username,
-                ),
-              ),
+      body: FutureBuilder<List<FileItem>>(
+        future: DataService().getAllPhotos(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No photos yet'));
+          }
+          final allPhotos = snapshot.data!;
+          return GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.8,
             ),
-            child: Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(16),
-                        ),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.image, size: 40, color: Colors.blue),
-                      ),
+            itemCount: allPhotos.length,
+            itemBuilder: (context, index) {
+              final item = allPhotos[index];
+              return InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ImageDetailScreen(
+                      item: item,
+                      username: username,
+                      isReadOnly: item.ownerName != username,
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          'by ${item.ownerName}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
+                ),
+                child: Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(16),
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.image, size: 40, color: Colors.blue),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.name,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'by ${item.ownerName}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           );
         },
       ),
@@ -228,25 +239,10 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
 
   void _handleSearch(String query) {
     if (query.isEmpty) return;
-    final lowerQ = query.toLowerCase();
-
-    final allUsers = DataService().rawUsers;
-    final user = allUsers.firstWhere(
-      (u) => (u['username'] as String).toLowerCase() == lowerQ,
-      orElse: () => null,
+    // Search is currently disabled while switching to Server-side logic
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Search via server not implemented yet')),
     );
-
-    if (user != null) {
-      setState(() {
-        _foundUsername = user['username'];
-        _currentAlbum = null;
-        _refreshData();
-      });
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('User not found')));
-    }
   }
 
   void _refreshData() {
@@ -708,12 +704,12 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
               context,
               MaterialPageRoute(
                 builder: (_) => UploadImageScreen(
-                  albums: _allVaultItems.where((i) => i.isFolder).toList(),
+                  albums: const [], // Simplified for now
                 ),
               ),
             );
             if (res != null) {
-              DataService().addImage(widget.username, res);
+              await DataService().addImage(widget.username, res);
               _refresh();
             }
           }),
@@ -1633,13 +1629,15 @@ class _UploadImageScreenState extends State<UploadImageScreen> {
                 ),
               ),
               onPressed: () {
-                if (nC.text.isNotEmpty)
+                if (nC.text.isNotEmpty) {
                   Navigator.pop(context, {
                     'name': nC.text,
                     'caption': cC.text,
                     'tags': tags,
                     'albumId': selectedAlbumId,
+                    'imageFile': _imageFile,
                   });
+                }
               },
               child: const Text('Share'),
             ),
