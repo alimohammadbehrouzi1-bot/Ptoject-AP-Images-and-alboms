@@ -101,6 +101,14 @@ public class Image {
         }
     }
 
+    public int getLikeCount() {
+        return usersWhoLiked.size();
+    }
+
+    public boolean isLikedBy(User user) {
+        return user != null && usersWhoLiked.contains(user);
+    }
+
     public String getPath() {
         return path;
     }

@@ -285,6 +285,18 @@ public class User {
     }
 
 
+    public boolean passwordMatches(String value) {
+        return Objects.equals(password, value);
+    }
+
+    public boolean isLoggedIn() {
+        return isLogged;
+    }
+
+    public void updateUsername(String newUsername) throws Exception {
+        setUsername(newUsername);
+    }
+
     public void setPassword(String password) throws Exception {
         boolean hasUpper = false;
         boolean hasLower = false;

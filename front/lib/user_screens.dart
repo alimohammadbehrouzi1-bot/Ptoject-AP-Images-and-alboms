@@ -1000,6 +1000,8 @@ class ImageDetailScreen extends StatefulWidget {
 
 class _ImageDetailScreenState extends State<ImageDetailScreen> {
   final _commentC = TextEditingController();
+  bool _isLiking = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1053,15 +1055,49 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
                                     : Icons.favorite_border,
                                 color: widget.item.isLiked ? Colors.red : null,
                               ),
-                              onPressed: () {
-                                setState(() {
-                                  widget.item.isLiked = !widget.item.isLiked;
-                                  widget.item.likes += widget.item.isLiked
-                                      ? 1
-                                      : -1;
-                                  DataService().toggleLike(widget.item.id);
-                                });
-                              },
+                              onPressed: _isLiking
+                                  ? null
+                                  : () async {
+                                      final oldIsLiked = widget.item.isLiked;
+                                      final oldLikes = widget.item.likes;
+
+                                      setState(() {
+                                        _isLiking = true;
+                                        widget.item.isLiked = !oldIsLiked;
+                                        widget.item.likes += widget.item.isLiked
+                                            ? 1
+                                            : -1;
+                                      });
+
+                                      final response = await DataService()
+                                          .toggleLike(widget.item.id);
+
+                                      if (mounted) {
+                                        setState(() {
+                                          _isLiking = false;
+                                          if (response.isSuccess &&
+                                              response.data != null) {
+                                            widget.item.likes =
+                                                (response.data['likes'] as num)
+                                                    .toInt();
+                                            widget.item.isLiked =
+                                                response.data['isLiked'] ==
+                                                true;
+                                          } else {
+                                            // Rollback
+                                            widget.item.isLiked = oldIsLiked;
+                                            widget.item.likes = oldLikes;
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('Action failed'),
+                                              ),
+                                            );
+                                          }
+                                        });
+                                      }
+                                    },
                             ),
                             Text('${widget.item.likes} likes'),
                           ],
@@ -1505,24 +1541,54 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
   }
 
   void _showChangeName() {
-    final c = TextEditingController();
+    final nameC = TextEditingController(text: widget.username);
+    final passC = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('New Username'),
-        content: TextField(controller: c),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameC,
+              decoration: const InputDecoration(labelText: 'New Username'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passC,
+              decoration: const InputDecoration(labelText: 'Current Password'),
+              obscureText: true,
+            ),
+          ],
+        ),
         actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () async {
-              if (await DataService().changeUsername(widget.username, c.text)) {
+              if (nameC.text.isEmpty || passC.text.isEmpty) return;
+              final response = await DataService().updateProfile(
+                oldUsername: widget.username,
+                newUsername: nameC.text.trim(),
+                currentPassword: passC.text,
+              );
+              if (response.isSuccess) {
                 if (mounted) {
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(
-                      builder: (_) => MainNavigation(username: c.text),
+                      builder: (_) =>
+                          MainNavigation(username: nameC.text.trim()),
                     ),
                     (r) => false,
                   );
                 }
+              } else if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(response.message ?? 'Update failed')),
+                );
               }
             },
             child: const Text('Change'),
@@ -1533,7 +1599,6 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
   }
 
   void _showChangePassword() {
-    final usernameC = TextEditingController();
     final oldPassC = TextEditingController();
     final newPassC = TextEditingController();
 
@@ -1545,14 +1610,11 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: usernameC,
-              decoration: const InputDecoration(labelText: 'Username'),
-            ),
-            TextField(
               controller: oldPassC,
               decoration: const InputDecoration(labelText: 'Old Password'),
               obscureText: true,
             ),
+            const SizedBox(height: 16),
             TextField(
               controller: newPassC,
               decoration: const InputDecoration(labelText: 'New Password'),
@@ -1566,16 +1628,26 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (usernameC.text.isNotEmpty &&
-                  oldPassC.text.isNotEmpty &&
-                  newPassC.text.isNotEmpty) {
+            onPressed: () async {
+              if (oldPassC.text.isEmpty || newPassC.text.isEmpty) return;
+              final response = await DataService().changePassword(
+                username: widget.username,
+                oldPassword: oldPassC.text,
+                newPassword: newPassC.text,
+              );
+              if (response.isSuccess) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Password updated successfully'),
+                    ),
+                  );
+                  Navigator.pop(context);
+                }
+              } else if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Password updated successfully'),
-                  ),
+                  SnackBar(content: Text(response.message ?? 'Update failed')),
                 );
-                Navigator.pop(context);
               }
             },
             child: const Text('Update'),

@@ -1,6 +1,16 @@
 {
   "users": [
     {
+      "username": "elina123",
+      "password": "Pass3434",
+      "email": "Elina123@gmail.com",
+      "phoneNumber": 989123265542,
+      "banned": false,
+      "likedImageIds": [
+        42048
+      ]
+    },
+    {
       "username": "mahan1234",
       "password": "Pass1234",
       "email": "mahan123@gmail.com",
@@ -25,7 +35,9 @@
       "caption": "",
       "tags": [],
       "ownerUsername": "mahan1234",
-      "usersWhoLikedUsernames": [],
+      "usersWhoLikedUsernames": [
+        "elina123"
+      ],
       "comments": []
     }
   ]

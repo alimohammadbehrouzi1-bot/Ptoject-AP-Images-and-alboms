@@ -5,7 +5,9 @@ import Faz1.User;
 import Faz1.Admin;
 import Faz1.Image;
 import Faz1.Album;
+import Faz1.Comment;
 import java.io.*;
+import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
@@ -48,6 +50,8 @@ class ClientHandler implements Runnable {
         routes.put("admin/users-list", "admin");
         routes.put("admin/toggle-ban", "admin");
         routes.put("images/user-vault", "images");
+        routes.put("users/change-password", "users");
+        routes.put("users/update", "users");
     }
 
     public ClientHandler(Socket socket) {
@@ -96,6 +100,8 @@ class ClientHandler implements Runnable {
             case "admin/users-list": return handleAdminUsersList(request);
             case "admin/toggle-ban": return handleAdminToggleBan(request);
             case "images/user-vault": return handleImageGetUserVault(request);
+            case "users/change-password": return handleUserChangePassword(request);
+            case "users/update": return handleUserUpdate(request);
             default: return new Response(request.getRequestId(), 404, "Route Not Found", null);
         }
     }
@@ -104,12 +110,17 @@ class ClientHandler implements Runnable {
         String username = (String) request.getPayload().get("username");
         String password = (String) request.getPayload().get("password");
 
-        for (User u : Admin.allUsers) {
-            if (u.getUsername().equals(username)) {
-                u.logIn(username, password);
-                if (u.isBanned()) {
-                    return new Response(request.getRequestId(), 403, "Forbidden: User is Banned", null);
-                }
+        User user = Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(username))
+                .findFirst()
+                .orElse(null);
+
+        if (user != null) {
+            if (user.isBanned()) {
+                return new Response(request.getRequestId(), 403, "Forbidden: User is Banned", null);
+            }
+            if (user.passwordMatches(password)) {
+                user.logIn(username, password);
                 return new Response(request.getRequestId(), 200, "Login Success", new HashMap<>());
             }
         }
@@ -213,6 +224,12 @@ class ClientHandler implements Runnable {
 
     private Response handleImageGetAll(Request request) {
         try {
+            String viewerUsername = (String) request.getPayload().get("viewerUsername");
+            User viewer = viewerUsername != null ? Admin.allUsers.stream()
+                    .filter(u -> u.getUsername().equals(viewerUsername))
+                    .findFirst()
+                    .orElse(null) : null;
+
             List<Map<String, Object>> imageList = new ArrayList<>();
             for (User user : Admin.allUsers) {
                 for (Image img : user.getImages()) {
@@ -222,7 +239,8 @@ class ClientHandler implements Runnable {
                     imgMap.put("owner", user.getUsername());
                     imgMap.put("caption", img.getCaption());
                     imgMap.put("tags", img.getTags());
-                    imgMap.put("likes", user.getLikedImages().contains(img) ? 1 : 0); // Simplified
+                    imgMap.put("likes", img.getLikeCount());
+                    imgMap.put("isLiked", img.isLikedBy(viewer));
 
                     String path = img.getPath();
                     if (path != null) {
@@ -246,10 +264,17 @@ class ClientHandler implements Runnable {
 
     private Response handleImageGetUserVault(Request request) {
         String username = (String) request.getPayload().get("username");
+        String viewerUsername = (String) request.getPayload().get("viewerUsername");
+
         User user = Admin.allUsers.stream()
                 .filter(u -> u.getUsername().equals(username))
                 .findFirst()
                 .orElse(null);
+
+        User viewer = viewerUsername != null ? Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(viewerUsername))
+                .findFirst()
+                .orElse(null) : null;
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
@@ -275,7 +300,8 @@ class ClientHandler implements Runnable {
                 iMap.put("caption", img.getCaption());
                 iMap.put("tags", img.getTags());
                 iMap.put("date", img.getDate().toString());
-                iMap.put("likes", 0); // Logic can be more complex
+                iMap.put("likes", img.getLikeCount());
+                iMap.put("isLiked", img.isLikedBy(viewer));
                 iMap.put("isFolder", false);
                 
                 // Find parent album id
@@ -355,7 +381,12 @@ class ClientHandler implements Runnable {
         try {
             user.addOrRemoveLikeImage(targetImage);
             DatabaseManager.save();
-            return new Response(request.getRequestId(), 200, "Like Interaction Success", new HashMap<>());
+            
+            Map<String, Object> data = new HashMap<>();
+            data.put("likes", targetImage.getLikeCount());
+            data.put("isLiked", targetImage.isLikedBy(user));
+            
+            return new Response(request.getRequestId(), 200, "Like Interaction Success", data);
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
         }
@@ -431,5 +462,97 @@ class ClientHandler implements Runnable {
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
         }
+    }
+
+    private Response handleUserChangePassword(Request request) {
+        String username = (String) request.getPayload().get("username");
+        String oldPassword = (String) request.getPayload().get("oldPassword");
+        String newPassword = (String) request.getPayload().get("newPassword");
+
+        User user = Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(username))
+                .findFirst()
+                .orElse(null);
+
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+
+        if (!user.passwordMatches(oldPassword)) {
+            return new Response(request.getRequestId(), 401, "Invalid Old Password", null);
+        }
+
+        try {
+            user.setPassword(newPassword);
+            DatabaseManager.save();
+            return new Response(request.getRequestId(), 200, "Password Changed Successfully", new HashMap<>());
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 400, e.getMessage(), null);
+        }
+    }
+
+    private Response handleUserUpdate(Request request) {
+        String oldUsername = (String) request.getPayload().get("oldUsername");
+        String newUsername = (String) request.getPayload().get("newUsername");
+        String currentPassword = (String) request.getPayload().get("currentPassword");
+
+        User user = Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(oldUsername))
+                .findFirst()
+                .orElse(null);
+
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+
+        if (!user.passwordMatches(currentPassword)) {
+            return new Response(request.getRequestId(), 401, "Invalid Password", null);
+        }
+
+        if (newUsername == null || newUsername.trim().isEmpty()) {
+            return new Response(request.getRequestId(), 400, "New Username cannot be empty", null);
+        }
+
+        if (!oldUsername.equals(newUsername) && Admin.allUsers.stream().anyMatch(u -> u.getUsername().equals(newUsername))) {
+            return new Response(request.getRequestId(), 400, "Username already in use", null);
+        }
+
+        try {
+            // Safely change username avoiding HashSet corruption
+            List<Set<User>> userSets = new ArrayList<>();
+            userSets.add(Admin.allUsers);
+
+            for (User u : Admin.allUsers) {
+                for (Image img : u.getImages()) {
+                    userSets.add(getPrivateField(img, "usersWhoLiked"));
+                    userSets.add(getPrivateField(img, "userWhoComment"));
+                    for (Comment c : img.getComments()) {
+                        userSets.add(getPrivateField(c, "usersWhoLiked"));
+                    }
+                }
+            }
+
+            List<Set<User>> setsContainingUser = new ArrayList<>();
+            for (Set<User> set : userSets) {
+                if (set.remove(user)) {
+                    setsContainingUser.add(set);
+                }
+            }
+
+            user.updateUsername(newUsername);
+
+            for (Set<User> set : setsContainingUser) {
+                set.add(user);
+            }
+
+            DatabaseManager.save();
+            Map<String, Object> data = new HashMap<>();
+            data.put("username", newUsername);
+            return new Response(request.getRequestId(), 200, "Username Updated Successfully", data);
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
+        }
+    }
+
+    private <T> T getPrivateField(Object obj, String fieldName) throws Exception {
+        Field field = obj.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return (T) field.get(obj);
     }
 }

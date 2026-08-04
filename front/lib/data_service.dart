@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'core/config/server_config.dart';
 import 'core/network/api_request.dart';
 import 'core/network/api_response.dart';
 import 'core/network/api_routes.dart';
@@ -16,6 +15,7 @@ class DataService {
 
   String? currentUsername;
   bool isAdminLoggedIn = false;
+
   final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(
     ThemeMode.system,
   );
@@ -23,6 +23,7 @@ class DataService {
   Future<void> init() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
       final String? savedTheme = prefs.getString('theme_mode');
       if (savedTheme == 'dark') themeNotifier.value = ThemeMode.dark;
       if (savedTheme == 'light') themeNotifier.value = ThemeMode.light;
@@ -32,56 +33,70 @@ class DataService {
         currentUsername = savedUser;
         isAdminLoggedIn = (savedUser == 'admin');
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('Error initializing DataService: $e');
+    }
   }
 
   Future<Map<String, dynamic>?> loginUser(
     String username,
     String password,
   ) async {
-    final response = await SocketClient().sendRequest(
-      ApiRequest(
-        route: ApiRoutes.loginUser,
-        payload: {'username': username, 'password': password},
-      ),
-    );
+    try {
+      final response = await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.loginUser,
+          payload: {'username': username, 'password': password},
+        ),
+      );
 
-    if (response.isSuccess) {
-      currentUsername = username;
-      isAdminLoggedIn = false;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('saved_session_user', currentUsername!);
-      return {'username': username};
-    } else if (response.statusCode == 403) {
-      return {'error': 'BANNED'};
+      if (response.isSuccess) {
+        currentUsername = username;
+        isAdminLoggedIn = false;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('saved_session_user', currentUsername!);
+        return {'username': username};
+      } else if (response.statusCode == 403) {
+        return {'error': 'BANNED'};
+      }
+    } catch (e) {
+      debugPrint('Login error: $e');
     }
     return null;
   }
 
   Future<bool> loginAdmin(String username, String password) async {
-    final response = await SocketClient().sendRequest(
-      ApiRequest(
-        route: ApiRoutes.loginAdmin,
-        payload: {'username': username, 'password': password},
-      ),
-    );
+    try {
+      final response = await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.loginAdmin,
+          payload: {'username': username, 'password': password},
+        ),
+      );
 
-    if (response.isSuccess) {
-      currentUsername = 'admin';
-      isAdminLoggedIn = true;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('saved_session_user', 'admin');
-      return true;
+      if (response.isSuccess) {
+        currentUsername = 'admin';
+        isAdminLoggedIn = true;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('saved_session_user', 'admin');
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Admin login error: $e');
     }
     return false;
   }
 
   Future<void> logout() async {
-    currentUsername = null;
-    isAdminLoggedIn = false;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('saved_session_user');
-    await SocketClient().disconnect();
+    try {
+      currentUsername = null;
+      isAdminLoggedIn = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('saved_session_user');
+      await SocketClient().disconnect();
+    } catch (e) {
+      debugPrint('Logout error: $e');
+    }
   }
 
   Future<ApiResponse> registerUser({
@@ -90,40 +105,82 @@ class DataService {
     String? email,
     String? phone,
   }) async {
-    return await SocketClient().sendRequest(
-      ApiRequest(
-        route: ApiRoutes.register,
-        payload: {
-          'username': username,
-          'password': password,
-          'email': (email != null && email.isNotEmpty) ? email : null,
-          'phone': (phone != null && phone.isNotEmpty) ? phone : null,
-        },
-      ),
-    );
+    try {
+      return await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.register,
+          payload: {
+            'username': username,
+            'password': password,
+            'email': (email != null && email.isNotEmpty) ? email : null,
+            'phone': (phone != null && phone.isNotEmpty) ? phone : null,
+          },
+        ),
+      );
+    } catch (e) {
+      debugPrint('Registration error: $e');
+      return ApiResponse.error(e.toString());
+    }
   }
 
-  Future<bool> changeUsername(String oldName, String newName) async {
-    final response = await SocketClient().sendRequest(
-      ApiRequest(
-        username: oldName,
-        route: ApiRoutes.updateProfile,
-        payload: {'username': newName},
-      ),
-    );
-    if (response.isSuccess) {
-      currentUsername = newName;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('saved_session_user', newName);
-      return true;
+  Future<ApiResponse> changePassword({
+    required String username,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      return await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.changePassword,
+          payload: {
+            'username': username,
+            'oldPassword': oldPassword,
+            'newPassword': newPassword,
+          },
+        ),
+      );
+    } catch (e) {
+      debugPrint('Change password error: $e');
+      return ApiResponse.error(e.toString());
     }
-    return false;
+  }
+
+  Future<ApiResponse> updateProfile({
+    required String oldUsername,
+    required String newUsername,
+    required String currentPassword,
+  }) async {
+    try {
+      final response = await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.updateProfile,
+          payload: {
+            'oldUsername': oldUsername,
+            'newUsername': newUsername,
+            'currentPassword': currentPassword,
+          },
+        ),
+      );
+
+      if (response.isSuccess) {
+        currentUsername = newUsername;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('saved_session_user', newUsername);
+      }
+      return response;
+    } catch (e) {
+      debugPrint('Profile update error: $e');
+      return ApiResponse.error(e.toString());
+    }
   }
 
   Future<List<FileItem>> getAllPhotos() async {
     try {
       final response = await SocketClient().sendRequest(
-        ApiRequest(route: ApiRoutes.getAllImages, payload: {}),
+        ApiRequest(
+          route: ApiRoutes.getAllImages,
+          payload: {'viewerUsername': currentUsername},
+        ),
       );
       if (response.isSuccess && response.data != null) {
         final List<dynamic> images = response.data['images'] ?? [];
@@ -142,7 +199,7 @@ class DataService {
       final response = await SocketClient().sendRequest(
         ApiRequest(
           route: ApiRoutes.getUserVault,
-          payload: {'username': username},
+          payload: {'username': username, 'viewerUsername': currentUsername},
         ),
       );
       if (response.isSuccess && response.data != null) {
@@ -162,32 +219,38 @@ class DataService {
   }
 
   Future<Map<String, int>> getUserStats(String username) async {
-    // We can infer stats from getVaultItems or have a dedicated route
-    final items = await getVaultItems(username);
-    int photos = items.where((i) => !i.isFolder).length;
-    int albums = items.where((i) => i.isFolder).length;
-    return {'photos': photos, 'albums': albums};
+    try {
+      final items = await getVaultItems(username);
+      int photos = items.where((i) => !i.isFolder).length;
+      int albums = items.where((i) => i.isFolder).length;
+      return {'photos': photos, 'albums': albums};
+    } catch (e) {
+      debugPrint('Error getting user stats: $e');
+      return {'photos': 0, 'albums': 0};
+    }
   }
 
   Future<void> deleteItem(int id) async {
-    await SocketClient().sendRequest(
-      ApiRequest(
-        username: currentUsername,
-        route: ApiRoutes.deleteImage,
-        payload: {'id': id},
-      ),
-    );
+    try {
+      await SocketClient().sendRequest(
+        ApiRequest(route: ApiRoutes.deleteImage, payload: {'id': id}),
+      );
+    } catch (e) {
+      debugPrint('Error deleting item: $e');
+    }
   }
 
   Future<void> movePhotos(List<int> photoIds, int? targetAlbumId) async {
-    // This requires a route like ApiRoutes.moveImages
-    await SocketClient().sendRequest(
-      ApiRequest(
-        username: currentUsername,
-        route: "albums/move-images",
-        payload: {'photoIds': photoIds, 'targetAlbumId': targetAlbumId},
-      ),
-    );
+    try {
+      await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.moveImages,
+          payload: {'photoIds': photoIds, 'targetAlbumId': targetAlbumId},
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error moving photos: $e');
+    }
   }
 
   Future<void> addAlbum(String username, String name) async {
@@ -204,12 +267,12 @@ class DataService {
   }
 
   Future<void> addImage(String username, Map<String, dynamic> data) async {
-    final File? file = data['imageFile'];
-    if (file == null) return;
-    final bytes = await file.readAsBytes();
-    final base64Image = base64Encode(bytes);
-
     try {
+      final File? file = data['imageFile'];
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
       await SocketClient().sendRequest(
         ApiRequest(
           route: ApiRoutes.uploadImage,
@@ -233,7 +296,7 @@ class DataService {
     try {
       await SocketClient().sendRequest(
         ApiRequest(
-          route: "images/update",
+          route: ApiRoutes.updateImage,
           payload: {'id': id, 'caption': caption, 'tags': tags},
         ),
       );
@@ -242,9 +305,9 @@ class DataService {
     }
   }
 
-  Future<void> toggleLike(int photoId) async {
+  Future<ApiResponse> toggleLike(int photoId) async {
     try {
-      await SocketClient().sendRequest(
+      return await SocketClient().sendRequest(
         ApiRequest(
           route: ApiRoutes.likeImage,
           payload: {'imageId': photoId, 'username': currentUsername},
@@ -252,6 +315,7 @@ class DataService {
       );
     } catch (e) {
       debugPrint('Error toggling like in toggleLike: $e');
+      return ApiResponse.error(e.toString());
     }
   }
 
@@ -269,28 +333,39 @@ class DataService {
   }
 
   Future<void> deleteAccount(String username) async {
-    final response = await SocketClient().sendRequest(
-      ApiRequest(
-        username: username,
-        route: ApiRoutes.deleteAccount,
-        payload: {},
-      ),
-    );
-    if (response.isSuccess) await logout();
+    try {
+      final response = await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.deleteAccount,
+          payload: {'username': username},
+        ),
+      );
+      if (response.isSuccess) await logout();
+    } catch (e) {
+      debugPrint('Error deleting account: $e');
+    }
   }
 
   Future<void> toggleBan(String username) async {
-    await SocketClient().sendRequest(
-      ApiRequest(route: ApiRoutes.toggleBan, payload: {'username': username}),
-    );
+    try {
+      await SocketClient().sendRequest(
+        ApiRequest(route: ApiRoutes.toggleBan, payload: {'username': username}),
+      );
+    } catch (e) {
+      debugPrint('Error toggling ban: $e');
+    }
   }
 
   Future<List<Map<String, dynamic>>> adminGetUsersList() async {
-    final response = await SocketClient().sendRequest(
-      ApiRequest(route: ApiRoutes.adminUsersList, payload: {}),
-    );
-    if (response.isSuccess && response.data != null) {
-      return List<Map<String, dynamic>>.from(response.data['users'] ?? []);
+    try {
+      final response = await SocketClient().sendRequest(
+        ApiRequest(route: ApiRoutes.adminUsersList, payload: {}),
+      );
+      if (response.isSuccess && response.data != null) {
+        return List<Map<String, dynamic>>.from(response.data['users'] ?? []);
+      }
+    } catch (e) {
+      debugPrint('Error getting admin users list: $e');
     }
     return [];
   }
@@ -305,6 +380,7 @@ class DataService {
       parentId: parentId,
       caption: img['caption'],
       likes: (img['likes'] as num?)?.toInt() ?? 0,
+      isLiked: img['isLiked'] == true,
       date: DateTime.tryParse(img['date'] ?? '') ?? DateTime.now(),
       tags: img['tags'] != null ? List<String>.from(img['tags']) : [],
       imageBytes: encodedImage == null || encodedImage.isEmpty
@@ -318,14 +394,18 @@ class DataService {
       id: (folder['id'] as num).toInt(),
       name: folder['name'] ?? '',
       isFolder: true,
-      ownerName: folder['ownerName'] ?? '',
+      ownerName: folder['owner'] ?? '',
       date: DateTime.now(),
     );
   }
 
   Future<void> toggleTheme(bool isDark) async {
-    themeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('theme_mode', isDark ? 'dark' : 'light');
+    try {
+      themeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('theme_mode', isDark ? 'dark' : 'light');
+    } catch (e) {
+      debugPrint('Error toggling theme: $e');
+    }
   }
 }
