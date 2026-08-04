@@ -19,12 +19,6 @@ class _AdminDashboardState extends State<AdminDashboard>
     _tabController = TabController(length: 2, vsync: this);
   }
 
-  void _handleBanToggle(String username) {
-    setState(() {
-      DataService().toggleBan(username);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(

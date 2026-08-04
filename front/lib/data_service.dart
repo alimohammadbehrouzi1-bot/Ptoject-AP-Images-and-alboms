@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/network/api_request.dart';
-import 'core/network/api_response.dart';
 import 'core/network/api_routes.dart';
 import 'core/network/socket_client.dart';
 import 'user_screens.dart';
