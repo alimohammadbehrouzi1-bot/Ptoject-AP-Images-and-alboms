@@ -319,17 +319,37 @@ class DataService {
     }
   }
 
-  Future<void> addComment(int photoId, String username, String text) async {
+  Future<CommentData?> addComment(
+    int photoId,
+    String username,
+    String text,
+  ) async {
     try {
-      await SocketClient().sendRequest(
+      final response = await SocketClient().sendRequest(
         ApiRequest(
           route: ApiRoutes.addComment,
           payload: {'imageId': photoId, 'text': text, 'username': username},
         ),
       );
+
+      if (response.isSuccess && response.data != null) {
+        final comment = response.data['comment'];
+        return CommentData(
+          username: comment['username'] ?? 'Unknown',
+          text: comment['text'] ?? '',
+          date: DateTime.tryParse(comment['date'] ?? '') ?? DateTime.now(),
+          likes: (comment['likes'] as num?)?.toInt() ?? 0,
+          isLiked: comment['isLiked'] == true,
+        );
+      } else {
+        debugPrint(
+          'Add comment failed: ${response.statusCode} - ${response.message}',
+        );
+      }
     } catch (e) {
       debugPrint('Error adding comment in addComment: $e');
     }
+    return null;
   }
 
   Future<void> deleteAccount(String username) async {
@@ -372,6 +392,8 @@ class DataService {
 
   FileItem _mapToItem(Map<String, dynamic> img, String owner, int? parentId) {
     final String? encodedImage = img['imageData'] as String?;
+    final List<dynamic> rawComments = img['comments'] ?? [];
+
     return FileItem(
       id: (img['id'] as num).toInt(),
       name: img['name'] ?? '',
@@ -383,6 +405,15 @@ class DataService {
       isLiked: img['isLiked'] == true,
       date: DateTime.tryParse(img['date'] ?? '') ?? DateTime.now(),
       tags: img['tags'] != null ? List<String>.from(img['tags']) : [],
+      comments: rawComments.map((comment) {
+        return CommentData(
+          username: comment['username'] ?? 'Unknown',
+          text: comment['text'] ?? '',
+          date: DateTime.tryParse(comment['date'] ?? '') ?? DateTime.now(),
+          likes: (comment['likes'] as num?)?.toInt() ?? 0,
+          isLiked: comment['isLiked'] == true,
+        );
+      }).toList(),
       imageBytes: encodedImage == null || encodedImage.isEmpty
           ? null
           : base64Decode(encodedImage),

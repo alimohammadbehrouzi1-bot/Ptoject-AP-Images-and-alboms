@@ -31,18 +31,20 @@ class FileItem {
     this.likes = 0,
     this.isLiked = false,
     required this.date,
-    this.comments = const [],
-  });
+    List<CommentData>? comments,
+  }) : comments = List<CommentData>.from(comments ?? const []);
 }
 
 class CommentData {
   final String username;
   final String text;
+  final DateTime date;
   int likes;
   bool isLiked;
   CommentData({
     required this.username,
     required this.text,
+    required this.date,
     this.likes = 0,
     this.isLiked = false,
   });
@@ -1001,6 +1003,34 @@ class ImageDetailScreen extends StatefulWidget {
 class _ImageDetailScreenState extends State<ImageDetailScreen> {
   final _commentC = TextEditingController();
   bool _isLiking = false;
+  bool _isSendingComment = false;
+
+  Future<void> _sendComment() async {
+    final text = _commentC.text.trim();
+    if (text.isEmpty || _isSendingComment) return;
+
+    setState(() => _isSendingComment = true);
+
+    final comment = await DataService().addComment(
+      widget.item.id,
+      widget.username,
+      text,
+    );
+
+    if (mounted) {
+      setState(() {
+        _isSendingComment = false;
+        if (comment != null) {
+          widget.item.comments.add(comment);
+          _commentC.clear();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to add comment')),
+          );
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1135,7 +1165,19 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            subtitle: Text(c.text),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(c.text),
+                                Text(
+                                  '${c.date.hour}:${c.date.minute} - ${c.date.day}/${c.date.month}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -1189,25 +1231,14 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: () {
-                    if (_commentC.text.isNotEmpty) {
-                      setState(() {
-                        widget.item.comments.add(
-                          CommentData(
-                            username: widget.username,
-                            text: _commentC.text,
-                          ),
-                        );
-                        DataService().addComment(
-                          widget.item.id,
-                          widget.username,
-                          _commentC.text,
-                        );
-                        _commentC.clear();
-                      });
-                    }
-                  },
+                  icon: _isSendingComment
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send),
+                  onPressed: _isSendingComment ? null : _sendComment,
                 ),
               ],
             ),

@@ -1,36 +1,33 @@
 package Faz1;
 
-import java.lang.reflect.Array;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public class Comment {
     private String comment;
-    private Image image ;
-    private User owner ;
-    private Set<User> usersWhoLiked =new HashSet<>() ;
-    private long likes ;
+    private Image image;
+    private User owner;
+    private Set<User> usersWhoLiked = new HashSet<>();
+    private long likes;
     private LocalDateTime date;
 
-    public Comment(User user , Image image ,String comment) throws Exception {
-        owner = user ;
-        this.image =image ;
+    public Comment(User user, Image image, String comment) throws Exception {
+        owner = user;
+        this.image = image;
         if (comment.length() > 1000)
             throw new Exception("caption should be under 1000 charecter");
         else this.comment = comment;
-        date=LocalDateTime.now();
+        date = LocalDateTime.now();
     }
 
-    public void addLikeAndRemoveComment(User user){
-        if(usersWhoLiked.contains(user)){
+    public void addLikeAndRemoveComment(User user) {
+        if (usersWhoLiked.contains(user)) {
             likes--;
             usersWhoLiked.remove(user);
             user.getLikedComment().remove(this);
-        }
-        else{
+        } else {
             usersWhoLiked.add(user);
             likes++;
             user.getLikedComment().add(this);
@@ -39,5 +36,21 @@ public class Comment {
 
     public String getComment() {
         return comment;
+    }
+
+    public String getOwnerUsername() {
+        return owner.getUsername();
+    }
+
+    public LocalDateTime getDate() {
+        return date;
+    }
+
+    public long getLikes() {
+        return likes;
+    }
+
+    public boolean isLikedBy(User user) {
+        return user != null && usersWhoLiked.contains(user);
     }
 }

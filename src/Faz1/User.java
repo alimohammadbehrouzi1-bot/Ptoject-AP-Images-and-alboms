@@ -276,12 +276,13 @@ public class User {
         comment.addLikeAndRemoveComment(this);
     }
 
-    public void writeComment(Image image, String string) throws Exception {
+    public Comment writeComment(Image image, String string) throws Exception {
         checkIsLogged();
         checkBanned();
         Comment comment = new Comment(this, image, string);
         image.addComment(this, comment);
         yourComments.add(comment);
+        return comment;
     }
 
 

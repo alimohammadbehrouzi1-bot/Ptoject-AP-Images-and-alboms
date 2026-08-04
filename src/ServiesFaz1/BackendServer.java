@@ -241,6 +241,7 @@ class ClientHandler implements Runnable {
                     imgMap.put("tags", img.getTags());
                     imgMap.put("likes", img.getLikeCount());
                     imgMap.put("isLiked", img.isLikedBy(viewer));
+                    imgMap.put("comments", mapComments(img, viewer));
 
                     String path = img.getPath();
                     if (path != null) {
@@ -302,6 +303,7 @@ class ClientHandler implements Runnable {
                 iMap.put("date", img.getDate().toString());
                 iMap.put("likes", img.getLikeCount());
                 iMap.put("isLiked", img.isLikedBy(viewer));
+                iMap.put("comments", mapComments(img, viewer));
                 iMap.put("isFolder", false);
                 
                 // Find parent album id
@@ -394,8 +396,22 @@ class ClientHandler implements Runnable {
 
     private Response handleInteractionComment(Request request) {
         String username = (String) request.getPayload().get("username");
-        long imageId = ((Double) request.getPayload().get("imageId")).longValue();
+        Object imageIdRaw = request.getPayload().get("imageId");
         String text = (String) request.getPayload().get("text");
+
+        if (username == null || imageIdRaw == null || text == null) {
+            return new Response(request.getRequestId(), 400, "Missing required fields", null);
+        }
+
+        text = text.trim();
+        if (text.isEmpty()) {
+            return new Response(request.getRequestId(), 400, "Comment cannot be empty", null);
+        }
+        if (text.length() > 1000) {
+            return new Response(request.getRequestId(), 400, "Comment too long (max 1000 chars)", null);
+        }
+
+        long imageId = ((Double) imageIdRaw).longValue();
 
         User user = Admin.allUsers.stream()
                 .filter(u -> u.getUsername().equals(username))
@@ -418,12 +434,37 @@ class ClientHandler implements Runnable {
         if (targetImage == null) return new Response(request.getRequestId(), 404, "Image Not Found", null);
 
         try {
-            user.writeComment(targetImage, text);
+            Comment createdComment = user.writeComment(targetImage, text);
             DatabaseManager.save();
-            return new Response(request.getRequestId(), 200, "Comment Added Successfully", new HashMap<>());
+
+            Map<String, Object> commentData = new HashMap<>();
+            commentData.put("username", createdComment.getOwnerUsername());
+            commentData.put("text", createdComment.getComment());
+            commentData.put("date", createdComment.getDate().toString());
+            commentData.put("likes", createdComment.getLikes());
+            commentData.put("isLiked", false);
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("comment", commentData);
+
+            return new Response(request.getRequestId(), 200, "Comment Added Successfully", data);
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
         }
+    }
+
+    private List<Map<String, Object>> mapComments(Image image, User viewer) {
+        List<Map<String, Object>> commentList = new ArrayList<>();
+        for (Comment c : image.getComments()) {
+            Map<String, Object> cMap = new HashMap<>();
+            cMap.put("username", c.getOwnerUsername());
+            cMap.put("text", c.getComment());
+            cMap.put("date", c.getDate().toString());
+            cMap.put("likes", c.getLikes());
+            cMap.put("isLiked", c.isLikedBy(viewer));
+            commentList.add(cMap);
+        }
+        return commentList;
     }
 
     private Response handleAdminUsersList(Request request) {
