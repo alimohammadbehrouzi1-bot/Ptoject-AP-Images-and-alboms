@@ -74,7 +74,7 @@ public class DatabaseManager {
         List<ImageDTO> images = new ArrayList<>();
     }
 
-    public synchronized static void save() {
+    public synchronized static boolean save() {
         try {
             File directory = new File("storage");
             if (!directory.exists()) directory.mkdirs();
@@ -152,8 +152,10 @@ public class DatabaseManager {
             try (FileWriter writer = new FileWriter(FILE_PATH)) {
                 gson.toJson(db, writer);
             }
+            return true;
         } catch (Exception e) {
             System.err.println("Save error: " + e.getMessage());
+            return false;
         }
     }
 

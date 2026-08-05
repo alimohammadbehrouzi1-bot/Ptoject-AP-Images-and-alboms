@@ -17,7 +17,7 @@ abstract final class ApiRoutes {
   static const adminUsersList = 'admin/users-list';
   static const getAllUsers = 'admin/users-list';
   static const toggleBan = 'admin/toggle-ban';
-  
+
   // Routes not yet implemented in backend
   static const getFeed = 'images/feed';
   static const getUserVault = 'images/user-vault';

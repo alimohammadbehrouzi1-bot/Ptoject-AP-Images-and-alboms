@@ -100,6 +100,8 @@ class ClientHandler implements Runnable {
             case "admin/users-list": return handleAdminUsersList(request);
             case "admin/toggle-ban": return handleAdminToggleBan(request);
             case "images/user-vault": return handleImageGetUserVault(request);
+            case "images/update": return handleImageUpdate(request);
+            case "images/delete": return handleImageDelete(request);
             case "users/change-password": return handleUserChangePassword(request);
             case "users/update": return handleUserUpdate(request);
             default: return new Response(request.getRequestId(), 404, "Route Not Found", null);
@@ -358,12 +360,11 @@ class ClientHandler implements Runnable {
 
     private Response handleInteractionLike(Request request) {
         String username = (String) request.getPayload().get("username");
-        long imageId = ((Double) request.getPayload().get("imageId")).longValue();
+        Object rawId = request.getPayload().get("imageId");
+        if (rawId == null) return new Response(request.getRequestId(), 400, "Missing imageId", null);
+        long imageId = ((Number) rawId).longValue();
 
-        User user = Admin.allUsers.stream()
-                .filter(u -> u.getUsername().equals(username))
-                .findFirst()
-                .orElse(null);
+        User user = findUser(username);
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
@@ -411,12 +412,9 @@ class ClientHandler implements Runnable {
             return new Response(request.getRequestId(), 400, "Comment too long (max 1000 chars)", null);
         }
 
-        long imageId = ((Double) imageIdRaw).longValue();
+        long imageId = ((Number) imageIdRaw).longValue();
 
-        User user = Admin.allUsers.stream()
-                .filter(u -> u.getUsername().equals(username))
-                .findFirst()
-                .orElse(null);
+        User user = findUser(username);
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
@@ -535,10 +533,7 @@ class ClientHandler implements Runnable {
         String newUsername = (String) request.getPayload().get("newUsername");
         String currentPassword = (String) request.getPayload().get("currentPassword");
 
-        User user = Admin.allUsers.stream()
-                .filter(u -> u.getUsername().equals(oldUsername))
-                .findFirst()
-                .orElse(null);
+        User user = findUser(oldUsername);
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
@@ -589,6 +584,147 @@ class ClientHandler implements Runnable {
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
         }
+    }
+
+    private Response handleImageUpdate(Request request) {
+        String username = (String) request.getPayload().get("username");
+        Object rawImageId = request.getPayload().get("imageId");
+        if (username == null || username.isEmpty() || rawImageId == null) {
+            return new Response(request.getRequestId(), 400, "Invalid Request: username and imageId required", null);
+        }
+
+        long imageId = ((Number) rawImageId).longValue();
+        String caption = (String) request.getPayload().get("caption");
+        Object rawTags = request.getPayload().get("tags");
+
+        if (rawTags != null && !(rawTags instanceof List<?>)) {
+            return new Response(request.getRequestId(), 400, "Tags must be a list", null);
+        }
+
+        User user = findUser(username);
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
+        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "User not logged in", null);
+
+        Image img = findImage(imageId);
+        if (img == null) return new Response(request.getRequestId(), 404, "Image Not Found", null);
+
+        try {
+            User imageOwner = getPrivateField(img, "owner");
+            if (!imageOwner.equals(user)) {
+                return new Response(request.getRequestId(), 403, "Forbidden: You do not own this image", null);
+            }
+
+            if (caption != null) img.addOrEditCaption(caption);
+
+            if (rawTags != null) {
+                List<String> parsedTags = new ArrayList<>();
+                for (Object value : (List<?>) rawTags) {
+                    if (value == null) continue;
+                    String tag = value.toString().trim();
+                    if (!tag.isEmpty() && !parsedTags.contains(tag)) {
+                        parsedTags.add(tag);
+                    }
+                }
+                img.addOrEditTags(new LinkedHashSet<>(parsedTags));
+            }
+
+            if (DatabaseManager.save()) {
+                Map<String, Object> data = new HashMap<>();
+                Map<String, Object> imgData = new HashMap<>();
+                imgData.put("id", img.getId());
+                imgData.put("caption", img.getCaption());
+                imgData.put("tags", new ArrayList<>(img.getTags()));
+                data.put("image", imgData);
+                return new Response(request.getRequestId(), 200, "Image Updated", data);
+            } else {
+                return new Response(request.getRequestId(), 500, "Internal Server Error: Failed to save database", null);
+            }
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
+        }
+    }
+
+    private Response handleImageDelete(Request request) {
+        String username = (String) request.getPayload().get("username");
+        Object rawImageId = request.getPayload().get("imageId");
+        if (username == null || username.isEmpty() || rawImageId == null) {
+            return new Response(request.getRequestId(), 400, "Invalid Request", null);
+        }
+
+        long imageId = ((Number) rawImageId).longValue();
+        User user = findUser(username);
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
+        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "User not logged in", null);
+
+        Image img = findImage(imageId);
+        if (img == null) return new Response(request.getRequestId(), 404, "Image Not Found", null);
+
+        try {
+            User imageOwner = getPrivateField(img, "owner");
+            if (!imageOwner.equals(user)) {
+                return new Response(request.getRequestId(), 403, "Forbidden: Not the owner", null);
+            }
+
+            // 1. Remove from every album
+            for (User u : Admin.allUsers) {
+                for (Album a : u.getAlbums()) {
+                    a.removeImageFromAlbumViaImage(img);
+                }
+            }
+
+            // 2. Remove from every user's likedImages set
+            for (User u : Admin.allUsers) {
+                u.getLikedImages().remove(img);
+            }
+
+            // 3. Remove comments and their like relationships
+            List<Comment> imageComments = new ArrayList<>(img.getComments());
+            for (Comment c : imageComments) {
+                User cOwner = getPrivateField(c, "owner");
+                Set<Comment> ownerYourComments = getPrivateField(cOwner, "yourComments");
+                ownerYourComments.remove(c);
+
+                for (User u : Admin.allUsers) {
+                    u.getLikedComment().remove(c);
+                }
+            }
+            img.getComments().clear();
+
+            // 4. Remove from owner's images list
+            user.getImages().remove(img);
+
+            // 5. Delete physical file
+            Files.deleteIfExists(Paths.get(img.getPath()));
+
+            if (DatabaseManager.save()) {
+                Map<String, Object> data = new HashMap<>();
+                data.put("deletedImageId", imageId);
+                return new Response(request.getRequestId(), 200, "Deleted Successfully", data);
+            } else {
+                return new Response(request.getRequestId(), 500, "Failed to persist deletion", null);
+            }
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, "Error during deletion: " + e.getMessage(), null);
+        }
+    }
+
+    private User findUser(String username) {
+        if (username == null) return null;
+        return Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(username))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private Image findImage(long id) {
+        for (User u : Admin.allUsers) {
+            for (Image img : u.getImages()) {
+                if (img.getId() == id) return img;
+            }
+        }
+        return null;
     }
 
     private <T> T getPrivateField(Object obj, String fieldName) throws Exception {

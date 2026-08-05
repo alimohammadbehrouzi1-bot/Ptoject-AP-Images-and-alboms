@@ -6,7 +6,9 @@
       "email": "mahan123@gmail.com",
       "phoneNumber": 989127449987,
       "banned": false,
-      "likedImageIds": []
+      "likedImageIds": [
+        55955
+      ]
     },
     {
       "username": "elina12356",
@@ -14,9 +16,7 @@
       "email": "Elina123@gmail.com",
       "phoneNumber": 989123265542,
       "banned": false,
-      "likedImageIds": [
-        42048
-      ]
+      "likedImageIds": []
     }
   ],
   "admins": [
@@ -25,28 +25,29 @@
       "password": "admin"
     }
   ],
-  "albums": [],
+  "albums": [
+    {
+      "id": 75180,
+      "name": "AvalinAlbum",
+      "ownerUsername": "mahan1234",
+      "imageIds": []
+    }
+  ],
   "images": [
     {
-      "id": 42048,
-      "name": "image1",
-      "path": "storage/images/bc9b7e2d-09e5-4b66-bbda-2a07025edb40.png",
-      "date": "2026-08-05T00:38:18.189457700",
-      "caption": "",
-      "tags": [],
+      "id": 55955,
+      "name": "KKKK",
+      "path": "storage/images/5ffb2c16-106e-49cd-b6a6-83c8fef5d240.png",
+      "date": "2026-08-05T23:07:14.574867400",
+      "caption": "III",
+      "tags": [
+        "market"
+      ],
       "ownerUsername": "mahan1234",
       "usersWhoLikedUsernames": [
-        "elina12356"
+        "mahan1234"
       ],
-      "comments": [
-        {
-          "comment": "hh",
-          "date": "2026-08-05T01:27:54.687931700",
-          "ownerUsername": "elina12356",
-          "usersWhoLikedUsernames": [],
-          "likes": 0
-        }
-      ]
+      "comments": []
     }
   ]
 }

@@ -110,9 +110,28 @@ class _MainNavigationState extends State<MainNavigation> {
 }
 
 // --- HOME PAGE (All Photos Feed) ---
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   final String username;
   const HomePage({super.key, required this.username});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  Future<List<FileItem>>? _photosFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  void _refresh() {
+    setState(() {
+      _photosFuture = DataService().getAllPhotos();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,9 +142,12 @@ class HomePage extends StatelessWidget {
           'Home Feed',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh),
+        ],
       ),
       body: FutureBuilder<List<FileItem>>(
-        future: DataService().getAllPhotos(),
+        future: _photosFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -148,16 +170,21 @@ class HomePage extends StatelessWidget {
             itemBuilder: (context, index) {
               final item = allPhotos[index];
               return InkWell(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ImageDetailScreen(
-                      item: item,
-                      username: username,
-                      isReadOnly: item.ownerName != username,
+                onTap: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ImageDetailScreen(
+                        item: item,
+                        username: widget.username,
+                        isReadOnly: item.ownerName != widget.username,
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                  if (result == true && mounted) {
+                    _refresh();
+                  }
+                },
                 child: Card(
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -395,14 +422,14 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
                 }
                 final item = _visibleItems[i];
                 return InkWell(
-                  onTap: () {
+                  onTap: () async {
                     if (item.isFolder) {
                       setState(() {
                         _currentAlbum = item;
                         _refreshData();
                       });
                     } else {
-                      Navigator.push(
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => ImageDetailScreen(
@@ -412,6 +439,9 @@ class _GlobalUserSearchPageState extends State<GlobalUserSearchPage> {
                           ),
                         ),
                       );
+                      if (result == true && mounted) {
+                        _refreshData();
+                      }
                     }
                   },
                   child: Column(
@@ -647,16 +677,7 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
                     Icons.delete_outline_rounded,
                     color: Colors.redAccent,
                   ),
-                  onPressed: () {
-                    for (var id in _selectedIds) {
-                      DataService().deleteItem(id);
-                    }
-                    setState(() {
-                      _selectedIds.clear();
-                      _isSelectionMode = false;
-                      _refresh();
-                    });
-                  },
+                  onPressed: () => _confirmDelete(),
                 ),
               ]
             : [
@@ -695,7 +716,7 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
                 bool sel = _selectedIds.contains(item.id);
                 return InkWell(
                   onLongPress: () => _toggle(item.id),
-                  onTap: () {
+                  onTap: () async {
                     if (_isSelectionMode) {
                       _toggle(item.id);
                     } else if (item.isFolder) {
@@ -704,7 +725,7 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
                         _refresh();
                       });
                     } else {
-                      Navigator.push(
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => ImageDetailScreen(
@@ -713,6 +734,9 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
                           ),
                         ),
                       );
+                      if (result == true && mounted) {
+                        _refresh();
+                      }
                     }
                   },
                   child: Column(
@@ -894,6 +918,93 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
     );
   }
 
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Delete Items?'),
+              content: Text(
+                'Delete ${_selectedIds.length} selected item(s)? This action cannot be undone.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                          setDialogState(() => isDeleting = true);
+                          final idsToDelete = List<int>.from(_selectedIds);
+                          bool anyError = false;
+                          String? lastErrorMessage;
+
+                          for (int id in idsToDelete) {
+                            final item = _allVaultItems.firstWhere(
+                              (i) => i.id == id,
+                              orElse: () => FileItem(
+                                id: -1,
+                                name: '',
+                                isFolder: true,
+                                date: DateTime.now(),
+                              ),
+                            );
+                            if (item.id != -1 && !item.isFolder) {
+                              final resp = await DataService().deleteImage(id);
+                              if (!resp.isSuccess) {
+                                anyError = true;
+                                lastErrorMessage = resp.message;
+                              } else {
+                                _selectedIds.remove(id);
+                              }
+                            }
+                          }
+                          if (mounted) {
+                            setState(() {
+                              _isSelectionMode = _selectedIds.isNotEmpty;
+                            });
+                            Navigator.pop(context);
+                            if (anyError) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    lastErrorMessage ?? 'Some deletions failed',
+                                  ),
+                                ),
+                              );
+                            }
+                            _refresh();
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: isDeleting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Delete'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showMoveDialog() {
     showDialog(
       context: context,
@@ -1005,6 +1116,16 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
   bool _isLiking = false;
   bool _isSendingComment = false;
 
+  late List<String> _currentTags;
+  late String? _currentCaption;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTags = List.from(widget.item.tags ?? []);
+    _currentCaption = widget.item.caption;
+  }
+
   Future<void> _sendComment() async {
     final text = _commentC.text.trim();
     if (text.isEmpty || _isSendingComment) return;
@@ -1043,6 +1164,11 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
             IconButton(
               icon: const Icon(Icons.edit, color: Colors.blue),
               onPressed: _showEdit,
+            ),
+          if (!widget.isReadOnly)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: _confirmDelete,
             ),
         ],
       ),
@@ -1133,23 +1259,35 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
                           ],
                         ),
                         Text(
-                          widget.item.caption ?? '',
+                          _currentCaption ?? '',
                           style: const TextStyle(fontSize: 15),
                         ),
-                        Wrap(
-                          spacing: 8,
-                          children: (widget.item.tags ?? [])
-                              .map(
-                                (t) => Text(
-                                  '#$t',
-                                  style: const TextStyle(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.bold,
+                        if (_currentTags.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              'No tags',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          )
+                        else
+                          Wrap(
+                            spacing: 8,
+                            children: _currentTags
+                                .map(
+                                  (t) => Text(
+                                    '#$t',
+                                    style: const TextStyle(
+                                      color: Colors.blue,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                              )
-                              .toList(),
-                        ),
+                                )
+                                .toList(),
+                          ),
                         const Divider(height: 48),
                         const Text(
                           'Comments',
@@ -1248,86 +1386,200 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
     );
   }
 
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Delete Photo?'),
+              content: Text(
+                'Are you sure you want to delete "${widget.item.name}"? This action cannot be undone.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                          setDialogState(() => isDeleting = true);
+                          final response = await DataService().deleteImage(
+                            widget.item.id,
+                          );
+                          if (mounted) {
+                            if (response.isSuccess) {
+                              Navigator.pop(context); // Close dialog
+                              Navigator.pop(
+                                context,
+                                true,
+                              ); // Go back with success result
+                            } else {
+                              setDialogState(() => isDeleting = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    response.message ?? 'Delete failed',
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: isDeleting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Delete'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showEdit() {
-    final captionC = TextEditingController(text: widget.item.caption);
-    final List<String> tempTags = List.from(widget.item.tags ?? []);
-    final tagC = TextEditingController();
+    final captionC = TextEditingController(text: _currentCaption);
+    final tagC = TextEditingController(text: _currentTags.join(', '));
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Edit Details'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: captionC,
-                  decoration: const InputDecoration(labelText: 'Caption'),
-                ),
-                const SizedBox(height: 16),
-                Row(
+      barrierDismissible: false,
+      builder: (context) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Edit Details'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: tagC,
-                        decoration: const InputDecoration(hintText: 'Add tag'),
-                      ),
+                    TextField(
+                      controller: captionC,
+                      decoration: const InputDecoration(labelText: 'Caption'),
+                      enabled: !isSaving,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: () {
-                        if (tagC.text.isNotEmpty) {
-                          setDialogState(() {
-                            tempTags.add(tagC.text);
-                            tagC.clear();
-                          });
-                        }
-                      },
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: tagC,
+                      decoration: const InputDecoration(
+                        labelText: 'Tags (comma separated)',
+                        hintText: 'market, option, test',
+                      ),
+                      enabled: !isSaving,
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: tempTags
-                      .map(
-                        (t) => Chip(
-                          label: Text('#$t'),
-                          onDeleted: () =>
-                              setDialogState(() => tempTags.remove(t)),
-                        ),
-                      )
-                      .toList(),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final parsedTags = _parseTags(tagC.text);
+                          setDialogState(() => isSaving = true);
+
+                          final response = await DataService().updatePhoto(
+                            imageId: widget.item.id,
+                            caption: captionC.text,
+                            tags: parsedTags,
+                          );
+
+                          if (mounted) {
+                            if (response.isSuccess) {
+                              setState(() {
+                                final rawImage = response.data?['image'];
+                                if (rawImage is Map) {
+                                  final updatedCap =
+                                      rawImage['caption']?.toString() ??
+                                      captionC.text;
+                                  final List<dynamic>? rawTags =
+                                      rawImage['tags'];
+                                  final List<String> updatedTags =
+                                      rawTags is List
+                                      ? rawTags
+                                            .where((v) => v != null)
+                                            .map((v) => v.toString())
+                                            .toList()
+                                      : List<String>.from(parsedTags);
+
+                                  _currentCaption = updatedCap;
+                                  _currentTags = updatedTags;
+
+                                  // Also sync back to the model object so parent lists are updated
+                                  widget.item.caption = updatedCap;
+                                  widget.item.tags = updatedTags;
+                                } else {
+                                  _currentCaption = captionC.text;
+                                  _currentTags = List.from(parsedTags);
+                                  widget.item.caption = captionC.text;
+                                  widget.item.tags = List.from(parsedTags);
+                                }
+                              });
+                              Navigator.pop(context);
+                            } else {
+                              setDialogState(() => isSaving = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    response.message ?? 'Update failed',
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  widget.item.caption = captionC.text;
-                  widget.item.tags = List.from(tempTags);
-                });
-                DataService().updatePhoto(
-                  widget.item.id,
-                  captionC.text,
-                  tempTags,
-                );
-                Navigator.pop(context);
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
+  }
+
+  List<String> _parseTags(String raw) {
+    final result = <String>[];
+    final seen = <String>{};
+
+    for (final part in raw.split(',')) {
+      final tag = part.trim();
+      if (tag.isEmpty) continue;
+
+      final normalized = tag.toLowerCase();
+      if (seen.add(normalized)) {
+        result.add(tag);
+      }
+    }
+    return result;
   }
 }
 

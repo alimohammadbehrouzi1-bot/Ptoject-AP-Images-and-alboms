@@ -12,7 +12,7 @@ public class Image {
     private LocalDateTime date;
     private  String name;
     private String caption;
-    private Set <String> tags = new HashSet<>() ;
+    private Set <String> tags = new LinkedHashSet<>() ;
     private Set <Album> albums = new HashSet<>() ;
     private Set <User> usersWhoLiked = new HashSet<>();
     private Set <User> userWhoComment = new HashSet<>();
@@ -33,12 +33,12 @@ public class Image {
     }
     public Image( User owner ,String path, String name ,Set<String> tags)throws Exception{
         this(owner, path, name);
-        this.tags =tags;
+        if (tags != null) this.tags.addAll(tags);
     }
     public Image( User owner ,String path, String name,String caption , Set<String> tags) throws Exception{
         this(owner, path, name);
         this.caption = caption ;
-        this.tags =tags;
+        if (tags != null) this.tags.addAll(tags);
     }
     public long makeRandomId() {
         Random random = new Random();
@@ -63,8 +63,11 @@ public class Image {
     public void addOrEditCaption(String caption) throws Exception {
         this.caption = caption ;
     }
-    public void addOrEditTags(Set<String> tags){
-        this.tags = tags ;
+    public void addOrEditTags(Set<String> newTags) {
+        this.tags.clear();
+        if (newTags != null) {
+            this.tags.addAll(newTags);
+        }
     }
 
 

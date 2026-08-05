@@ -231,9 +231,10 @@ class DataService {
   }
 
   Future<void> deleteItem(int id) async {
+    // Deprecated for images, use deleteImage
     try {
       await SocketClient().sendRequest(
-        ApiRequest(route: ApiRoutes.deleteImage, payload: {'id': id}),
+        ApiRequest(route: ApiRoutes.deleteImage, payload: {'imageId': id}),
       );
     } catch (e) {
       debugPrint('Error deleting item: $e');
@@ -292,16 +293,43 @@ class DataService {
     }
   }
 
-  Future<void> updatePhoto(int id, String? caption, List<String>? tags) async {
+  Future<ApiResponse> updatePhoto({
+    required int imageId,
+    String? caption,
+    List<String>? tags,
+  }) async {
+    if (currentUsername == null) return ApiResponse.error('Not logged in');
     try {
-      await SocketClient().sendRequest(
+      debugPrint('Updating image tags: imageId=$imageId tags=$tags');
+      return await SocketClient().sendRequest(
         ApiRequest(
           route: ApiRoutes.updateImage,
-          payload: {'id': id, 'caption': caption, 'tags': tags},
+          payload: {
+            'username': currentUsername,
+            'imageId': imageId,
+            'caption': caption,
+            'tags': tags,
+          },
         ),
       );
     } catch (e) {
       debugPrint('Error updating photo in updatePhoto: $e');
+      return ApiResponse.error(e.toString());
+    }
+  }
+
+  Future<ApiResponse> deleteImage(int imageId) async {
+    if (currentUsername == null) return ApiResponse.error('Not logged in');
+    try {
+      return await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.deleteImage,
+          payload: {'username': currentUsername, 'imageId': imageId},
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error deleting image: $e');
+      return ApiResponse.error(e.toString());
     }
   }
 
