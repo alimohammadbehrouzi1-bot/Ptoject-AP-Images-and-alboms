@@ -230,27 +230,59 @@ class DataService {
     }
   }
 
-  Future<void> deleteItem(int id) async {
-    // Deprecated for images, use deleteImage
+  Future<ApiResponse> toggleCommentLike(int commentId) async {
+    if (currentUsername == null) return ApiResponse.error('Not logged in');
     try {
-      await SocketClient().sendRequest(
-        ApiRequest(route: ApiRoutes.deleteImage, payload: {'imageId': id}),
-      );
-    } catch (e) {
-      debugPrint('Error deleting item: $e');
-    }
-  }
-
-  Future<void> movePhotos(List<int> photoIds, int? targetAlbumId) async {
-    try {
-      await SocketClient().sendRequest(
+      return await SocketClient().sendRequest(
         ApiRequest(
-          route: ApiRoutes.moveImages,
-          payload: {'photoIds': photoIds, 'targetAlbumId': targetAlbumId},
+          route: ApiRoutes.likeComment,
+          payload: {'username': currentUsername, 'commentId': commentId},
         ),
       );
     } catch (e) {
-      debugPrint('Error moving photos: $e');
+      debugPrint('Error toggling comment like: $e');
+      return ApiResponse.error(e.toString());
+    }
+  }
+
+  Future<ApiResponse> deleteComment(int commentId) async {
+    if (currentUsername == null) return ApiResponse.error('Not logged in');
+    try {
+      return await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.deleteComment,
+          payload: {'username': currentUsername, 'commentId': commentId},
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error deleting comment: $e');
+      return ApiResponse.error(e.toString());
+    }
+  }
+
+  Future<ApiResponse> moveImages({
+    required List<int> imageIds,
+    int? sourceAlbumId,
+    int? targetAlbumId,
+  }) async {
+    if (currentUsername == null) return ApiResponse.error('Not logged in');
+    if (imageIds.isEmpty) return ApiResponse.error('No images selected');
+
+    try {
+      return await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.moveImages,
+          payload: {
+            'username': currentUsername,
+            'imageIds': imageIds,
+            'sourceAlbumId': sourceAlbumId,
+            'targetAlbumId': targetAlbumId,
+          },
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error moving images: $e');
+      return ApiResponse.error(e.toString());
     }
   }
 
@@ -314,10 +346,7 @@ class DataService {
     }
   }
 
-  Future<ApiResponse> addImage(
-    String username,
-    Map<String, dynamic> data,
-  ) async {
+  Future<ApiResponse> addImage(String username, Map<String, dynamic> data) async {
     try {
       final File? file = data['imageFile'];
       if (file == null) return ApiResponse.error('No image selected');
@@ -340,32 +369,6 @@ class DataService {
       );
     } catch (e) {
       debugPrint('Error uploading image in addImage: $e');
-      return ApiResponse.error(e.toString());
-    }
-  }
-
-  Future<ApiResponse> moveImages({
-    required List<int> imageIds,
-    int? sourceAlbumId,
-    int? targetAlbumId,
-  }) async {
-    if (currentUsername == null) return ApiResponse.error('Not logged in');
-    if (imageIds.isEmpty) return ApiResponse.error('No images selected');
-
-    try {
-      return await SocketClient().sendRequest(
-        ApiRequest(
-          route: ApiRoutes.moveImages,
-          payload: {
-            'username': currentUsername,
-            'imageIds': imageIds,
-            'sourceAlbumId': sourceAlbumId,
-            'targetAlbumId': targetAlbumId,
-          },
-        ),
-      );
-    } catch (e) {
-      debugPrint('Error moving images: $e');
       return ApiResponse.error(e.toString());
     }
   }
@@ -440,6 +443,7 @@ class DataService {
       if (response.isSuccess && response.data != null) {
         final comment = response.data['comment'];
         return CommentData(
+          id: (comment['id'] as num?)?.toInt() ?? 0,
           username: comment['username'] ?? 'Unknown',
           text: comment['text'] ?? '',
           date: DateTime.tryParse(comment['date'] ?? '') ?? DateTime.now(),
@@ -512,6 +516,7 @@ class DataService {
       tags: img['tags'] != null ? List<String>.from(img['tags']) : [],
       comments: rawComments.map((comment) {
         return CommentData(
+          id: (comment['id'] as num?)?.toInt() ?? 0,
           username: comment['username'] ?? 'Unknown',
           text: comment['text'] ?? '',
           date: DateTime.tryParse(comment['date'] ?? '') ?? DateTime.now(),

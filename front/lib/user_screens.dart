@@ -37,12 +37,14 @@ class FileItem {
 }
 
 class CommentData {
+  final int id;
   final String username;
   final String text;
   final DateTime date;
   int likes;
   bool isLiked;
   CommentData({
+    required this.id,
     required this.username,
     required this.text,
     required this.date,
@@ -558,8 +560,7 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
     if (_isLastPage) return;
     setState(() {
       List<FileItem> source = _getFilteredSource();
-      int nextCount = _visibleItems.length + _pageSize;
-      if (nextCount >= source.length) {
+      int nextCount = _visibleItems.length + _pageSize;      if (nextCount >= source.length) {
         nextCount = source.length;
         _isLastPage = true;
       }
@@ -1058,6 +1059,72 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
     );
   }
 
+  void _confirmDeleteCurrentAlbum() {
+    if (_currentAlbum == null) return;
+    final albumName = _currentAlbum!.name;
+    final albumId = _currentAlbum!.id;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Delete Album?'),
+              content: Text(
+                'Are you sure you want to delete "$albumName"? Photos inside will be preserved.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                          setDialogState(() => isDeleting = true);
+                          final resp = await DataService().deleteAlbum(albumId);
+                          if (mounted) {
+                            if (resp.isSuccess) {
+                              setState(() {
+                                _currentAlbum = null;
+                              });
+                              Navigator.pop(context);
+                              _refresh();
+                            } else {
+                              setDialogState(() => isDeleting = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(resp.message ?? 'Error')),
+                              );
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: isDeleting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Delete'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _confirmDelete() {
     showDialog(
       context: context,
@@ -1151,82 +1218,14 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
     );
   }
 
-  void _confirmDeleteCurrentAlbum() {
-    if (_currentAlbum == null) return;
-    final albumName = _currentAlbum!.name;
-    final albumId = _currentAlbum!.id;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        bool isDeleting = false;
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Delete Album?'),
-              content: Text(
-                'Are you sure you want to delete "$albumName"? Photos inside will be preserved.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isDeleting ? null : () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: isDeleting
-                      ? null
-                      : () async {
-                          setDialogState(() => isDeleting = true);
-                          final resp = await DataService().deleteAlbum(albumId);
-                          if (mounted) {
-                            if (resp.isSuccess) {
-                              setState(() {
-                                _currentAlbum = null;
-                              });
-                              Navigator.pop(context);
-                              _refresh();
-                            } else {
-                              setDialogState(() => isDeleting = false);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(resp.message ?? 'Error'),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: isDeleting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Delete'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
   void _showMoveDialog() {
     final selectedItems = _allVaultItems
         .where((i) => _selectedIds.contains(i.id))
         .toList();
     if (selectedItems.any((i) => i.isFolder)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Only images can be moved')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Only images can be moved')),
+      );
       return;
     }
 
@@ -1242,88 +1241,85 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
           builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text('Move to...'),
-              content: isMoving
-                  ? const SizedBox(
-                      height: 100,
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  : SizedBox(
-                      width: double.maxFinite,
-                      child: ListView(
-                        shrinkWrap: true,
-                        children: [
-                          if (sourceId != null)
-                            ListTile(
-                              leading: const Icon(Icons.folder_open),
-                              title: const Text('Root'),
-                              onTap: () async {
-                                setDialogState(() => isMoving = true);
-                                final resp = await DataService().moveImages(
-                                  imageIds: _selectedIds.toList(),
-                                  sourceAlbumId: sourceId,
-                                  targetAlbumId: null,
-                                );
-                                if (mounted) {
-                                  if (resp.isSuccess) {
-                                    setState(() {
-                                      _isSelectionMode = false;
-                                      _selectedIds.clear();
-                                    });
-                                    Navigator.pop(context);
-                                    _refresh();
-                                  } else {
-                                    setDialogState(() => isMoving = false);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          resp.message ?? 'Move failed',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                            ),
-                          ...albums
-                              .where((a) => a.id != sourceId)
-                              .map(
-                                (f) => ListTile(
-                                  leading: const Icon(Icons.folder),
-                                  title: Text(f.name),
-                                  onTap: () async {
-                                    setDialogState(() => isMoving = true);
-                                    final resp = await DataService().moveImages(
-                                      imageIds: _selectedIds.toList(),
-                                      sourceAlbumId: sourceId,
-                                      targetAlbumId: f.id,
-                                    );
-                                    if (mounted) {
-                                      if (resp.isSuccess) {
-                                        setState(() {
-                                          _isSelectionMode = false;
-                                          _selectedIds.clear();
-                                        });
-                                        Navigator.pop(context);
-                                        _refresh();
-                                      } else {
-                                        setDialogState(() => isMoving = false);
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              resp.message ?? 'Move failed',
-                                            ),
+              content:
+                  isMoving
+                      ? const SizedBox(
+                        height: 100,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                      : SizedBox(
+                        width: double.maxFinite,
+                        child: ListView(
+                          shrinkWrap: true,
+                          children: [
+                            if (sourceId != null)
+                              ListTile(
+                                leading: const Icon(Icons.folder_open),
+                                title: const Text('Root'),
+                                onTap: () async {
+                                  setDialogState(() => isMoving = true);
+                                  final resp = await DataService().moveImages(
+                                    imageIds: _selectedIds.toList(),
+                                    sourceAlbumId: sourceId,
+                                    targetAlbumId: null,
+                                  );
+                                  if (mounted) {
+                                    if (resp.isSuccess) {
+                                      setState(() {
+                                        _isSelectionMode = false;
+                                        _selectedIds.clear();
+                                      });
+                                      Navigator.pop(context);
+                                      _refresh();
+                                    } else {
+                                      setDialogState(() => isMoving = false);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            resp.message ?? 'Move failed',
                                           ),
-                                        );
-                                      }
+                                        ),
+                                      );
                                     }
-                                  },
-                                ),
+                                  }
+                                },
                               ),
-                        ],
+                            ...albums.where((a) => a.id != sourceId).map(
+                              (f) => ListTile(
+                                leading: const Icon(Icons.folder),
+                                title: Text(f.name),
+                                onTap: () async {
+                                  setDialogState(() => isMoving = true);
+                                  final resp = await DataService().moveImages(
+                                    imageIds: _selectedIds.toList(),
+                                    sourceAlbumId: sourceId,
+                                    targetAlbumId: f.id,
+                                  );
+                                  if (mounted) {
+                                    if (resp.isSuccess) {
+                                      setState(() {
+                                        _isSelectionMode = false;
+                                        _selectedIds.clear();
+                                      });
+                                      Navigator.pop(context);
+                                      _refresh();
+                                    } else {
+                                      setDialogState(() => isMoving = false);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            resp.message ?? 'Move failed',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
               actions: [
                 TextButton(
                   onPressed: isMoving ? null : () => Navigator.pop(context),
@@ -1408,6 +1404,7 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
   final _commentC = TextEditingController();
   bool _isLiking = false;
   bool _isSendingComment = false;
+  final Set<int> _likingCommentIds = {};
 
   late List<String> _currentTags;
   late String? _currentCaption;
@@ -1617,20 +1614,36 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
                                   style: const TextStyle(fontSize: 12),
                                 ),
                                 IconButton(
-                                  icon: Icon(
-                                    c.isLiked
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    size: 16,
-                                    color: c.isLiked ? Colors.red : Colors.grey,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      c.isLiked = !c.isLiked;
-                                      c.likes += c.isLiked ? 1 : -1;
-                                    });
-                                  },
+                                  icon: _likingCommentIds.contains(c.id)
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Icon(
+                                          c.isLiked
+                                              ? Icons.favorite
+                                              : Icons.favorite_border,
+                                          size: 16,
+                                          color: c.isLiked
+                                              ? Colors.red
+                                              : Colors.grey,
+                                        ),
+                                  onPressed: _likingCommentIds.contains(c.id)
+                                      ? null
+                                      : () => _toggleCommentLike(c),
                                 ),
+                                if (c.username == widget.username)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 16,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () => _confirmDeleteComment(c),
+                                  ),
                               ],
                             ),
                           ),
@@ -1673,6 +1686,62 @@ class _ImageDetailScreenState extends State<ImageDetailScreen> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleCommentLike(CommentData c) async {
+    setState(() => _likingCommentIds.add(c.id));
+    final resp = await DataService().toggleCommentLike(c.id);
+    if (mounted) {
+      setState(() {
+        _likingCommentIds.remove(c.id);
+        if (resp.isSuccess) {
+          final rawComment = resp.data?['comment'];
+          if (rawComment is Map) {
+            c.likes = (rawComment['likes'] as num).toInt();
+            c.isLiked = rawComment['isLiked'] == true;
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(resp.message ?? 'Like failed')),
+          );
+        }
+      });
+    }
+  }
+
+  void _confirmDeleteComment(CommentData c) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Comment?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final resp = await DataService().deleteComment(c.id);
+              if (mounted) {
+                if (resp.isSuccess) {
+                  setState(() {
+                    widget.item.comments.removeWhere((com) => com.id == c.id);
+                  });
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(resp.message ?? 'Delete failed')),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
           ),
         ],
       ),

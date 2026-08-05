@@ -55,6 +55,7 @@ public class DatabaseManager {
     }
 
     private static class CommentDTO {
+        long id;
         String comment;
         LocalDateTime date;
         String ownerUsername;
@@ -123,6 +124,7 @@ public class DatabaseManager {
                     // 4. Map Comments for this image
                     for (Comment c : img.getComments()) {
                         CommentDTO cDto = new CommentDTO();
+                        cDto.id = c.getId();
                         cDto.comment = c.getComment();
                         cDto.date = getPrivateField(c, "date");
                         User commentOwner = getPrivateField(c, "owner");
@@ -192,7 +194,8 @@ public class DatabaseManager {
                         setPrivateField(img, "id", iDto.id);
                         setPrivateField(img, "date", iDto.date);
                         imageMap.put(iDto.id, img);
-                        
+                        Faz1.Image.registerId(iDto.id);
+
                         owner.getImages().add(img);
                     }
 
@@ -230,6 +233,10 @@ public class DatabaseManager {
                             if (cOwner == null) continue;
                             
                             Comment comment = new Comment(cOwner, img, cDto.comment);
+                            if (cDto.id != 0) {
+                                setPrivateField(comment, "id", cDto.id);
+                                Faz1.Comment.registerId(cDto.id);
+                            }
                             setPrivateField(comment, "date", cDto.date);
                             setPrivateField(comment, "likes", cDto.likes);
                             

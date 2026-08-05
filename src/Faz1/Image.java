@@ -20,12 +20,28 @@ public class Image {
     private ArrayList<Comment>  comments = new ArrayList<>() ;
 
 
+    private static final Set<Long> allUsedIds = new HashSet<>();
+
     public Image( User owner ,String path, String name ) throws Exception{
         this.owner = owner ;
         this.path = path;
         this.name = name;
         this.date = LocalDateTime.now();
-        this.id = makeRandomId();
+        this.id = generateGlobalUniqueId();
+    }
+
+    private static synchronized long generateGlobalUniqueId() {
+        Random random = new Random();
+        long idCreated;
+        do {
+            idCreated = 100000L + random.nextInt(900000);
+        } while (allUsedIds.contains(idCreated));
+        allUsedIds.add(idCreated);
+        return idCreated;
+    }
+
+    public static void registerId(long id) {
+        allUsedIds.add(id);
     }
     public Image( User owner ,String path, String name , String caption) throws Exception{
         this(owner, path, name);
@@ -39,26 +55,6 @@ public class Image {
         this(owner, path, name);
         this.caption = caption ;
         if (tags != null) this.tags.addAll(tags);
-    }
-    public long makeRandomId() {
-        Random random = new Random();
-        long idCreated;
-        boolean exists;
-
-        do {
-            idCreated = random.nextInt(90000) + 10000;
-            exists = false;
-
-            for (Image img : owner.getImages()) {
-                if (img.getId() == idCreated) {
-                    exists = true;
-                    break;
-                }
-            }
-
-        } while (exists);
-
-        return idCreated;
     }
     public void addOrEditCaption(String caption) throws Exception {
         this.caption = caption ;

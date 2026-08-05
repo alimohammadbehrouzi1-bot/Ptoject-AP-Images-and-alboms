@@ -83,13 +83,6 @@ public class Album {
         return idCreated;
     }
 
-    public void rename(String newName) throws Exception {
-        if (newName == null || newName.trim().isEmpty()) {
-            throw new Exception("Album name cannot be empty");
-        }
-        this.name = newName.trim();
-    }
-
     public String getName() {
         return name;
     }

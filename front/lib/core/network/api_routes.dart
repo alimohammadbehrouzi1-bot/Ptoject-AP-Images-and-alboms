@@ -26,6 +26,7 @@ abstract final class ApiRoutes {
   static const updateImage = 'images/update';
   static const deleteImage = 'images/delete';
   static const likeComment = 'comments/like';
+  static const deleteComment = 'comments/delete';
   static const moveImages = 'albums/move-images';
   static const searchUser = 'users/search';
   static const updateProfile = 'users/update';

@@ -45,9 +45,6 @@ class ClientHandler implements Runnable {
         routes.put("auth/register", "auth");
         routes.put("admin/login", "admin");
         routes.put("album/create", "album");
-        routes.put("albums/rename", "albums");
-        routes.put("albums/delete", "albums");
-        routes.put("albums/move-images", "albums");
         routes.put("interaction/like", "interaction");
         routes.put("interaction/comment", "interaction");
         routes.put("admin/users-list", "admin");
@@ -98,14 +95,13 @@ class ClientHandler implements Runnable {
             case "image/upload": return handleImageUpload(request);
             case "image/get-all": return handleImageGetAll(request);
             case "album/create": return handleAlbumCreate(request);
-            case "albums/rename": return handleAlbumRename(request);
-            case "albums/delete": return handleAlbumDelete(request);
             case "interaction/like": return handleInteractionLike(request);
             case "interaction/comment": return handleInteractionComment(request);
+            case "comments/like": return handleCommentLike(request);
+            case "comments/delete": return handleCommentDelete(request);
             case "admin/users-list": return handleAdminUsersList(request);
             case "admin/toggle-ban": return handleAdminToggleBan(request);
             case "images/user-vault": return handleImageGetUserVault(request);
-            case "albums/move-images": return handleAlbumMoveImages(request);
             case "images/update": return handleImageUpdate(request);
             case "images/delete": return handleImageDelete(request);
             case "users/change-password": return handleUserChangePassword(request);
@@ -175,29 +171,17 @@ class ClientHandler implements Runnable {
         String caption = (String) request.getPayload().get("caption");
         List<String> tagsList = (List<String>) request.getPayload().get("tags");
         Object albumIdRaw = request.getPayload().get("albumId");
+        Long albumId = (albumIdRaw != null) ? ((Double) albumIdRaw).longValue() : null;
+        Set<String> tags = new HashSet<>(tagsList != null ? tagsList : new ArrayList<>());
 
-        if (username == null || username.isEmpty()) {
-            return new Response(request.getRequestId(), 400, "Username is required", null);
-        }
-
-        User user = findUser(username);
-        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
-        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
-        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "User not logged in", null);
-
-        Long albumId = (albumIdRaw != null) ? ((Number) albumIdRaw).longValue() : null;
-        Album targetAlbum = null;
-        if (albumId != null) {
-            targetAlbum = user.getAlbums().stream()
-                .filter(a -> a.getId() == albumId.longValue())
+        User user = Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(username))
                 .findFirst()
                 .orElse(null);
-            if (targetAlbum == null) {
-                return new Response(request.getRequestId(), 404, "Target album not found", null);
-            }
-        }
 
-        Set<String> tags = new HashSet<>(tagsList != null ? tagsList : new ArrayList<>());
+        if (user == null) {
+            return new Response(request.getRequestId(), 404, "User Not Found", null);
+        }
 
         try {
             String extension = "";
@@ -224,30 +208,19 @@ class ClientHandler implements Runnable {
             // Find the newly created image to add it to album
             Image newImage = user.getImages().get(user.getImages().size() - 1);
             
-            if (targetAlbum != null) {
-                targetAlbum.addImageToAlbumViaImage(newImage);
-                newImage.addNewAlbumViaAlbum(targetAlbum);
-            }
-            
-            if (DatabaseManager.save()) {
-                Map<String, Object> data = new HashMap<>();
-                Map<String, Object> imgData = new HashMap<>();
-                imgData.put("id", newImage.getId());
-                imgData.put("name", newImage.getName());
-                imgData.put("caption", newImage.getCaption());
-                imgData.put("tags", new ArrayList<>(newImage.getTags()));
-                imgData.put("albumId", albumId);
-                data.put("image", imgData);
-                return new Response(request.getRequestId(), 200, "Image Uploaded Successfully", data);
-            } else {
-                // Rollback
-                user.getImages().remove(newImage);
+            if (albumId != null) {
+                Album targetAlbum = user.getAlbums().stream()
+                    .filter(a -> a.getId() == albumId)
+                    .findFirst()
+                    .orElse(null);
                 if (targetAlbum != null) {
-                    targetAlbum.removeImageFromAlbumViaImage(newImage);
+                    targetAlbum.addImageToAlbum(newImage);
                 }
-                Files.deleteIfExists(Paths.get(filePath));
-                return new Response(request.getRequestId(), 500, "Failed to save database", null);
             }
+
+            DatabaseManager.save();
+
+            return new Response(request.getRequestId(), 200, "Image Uploaded Successfully", new HashMap<>());
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Upload Failed: " + e.getMessage(), null);
         }
@@ -298,14 +271,20 @@ class ClientHandler implements Runnable {
         String username = (String) request.getPayload().get("username");
         String viewerUsername = (String) request.getPayload().get("viewerUsername");
 
-        User user = findUser(username);
-        User viewer = findUser(viewerUsername);
+        User user = Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(username))
+                .findFirst()
+                .orElse(null);
+
+        User viewer = viewerUsername != null ? Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(viewerUsername))
+                .findFirst()
+                .orElse(null) : null;
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
         try {
             List<Map<String, Object>> items = new ArrayList<>();
-            boolean needsSave = false;
 
             // Map Albums
             for (Album alb : user.getAlbums()) {
@@ -319,33 +298,25 @@ class ClientHandler implements Runnable {
 
             // Map Images
             for (Image img : user.getImages()) {
-                // Cleanup multiple album memberships
-                List<Album> imgAlbums = new ArrayList<>(img.getAlbums());
-                if (imgAlbums.size() > 1) {
-                    for (int i = 1; i < imgAlbums.size(); i++) {
-                        Album discard = imgAlbums.get(i);
-                        discard.removeImageFromAlbumViaImage(img);
-                        img.removeAlbumViaAlbum(discard);
-                    }
-                    needsSave = true;
-                }
-
                 Map<String, Object> iMap = new HashMap<>();
                 iMap.put("id", img.getId());
                 iMap.put("name", img.getName());
                 iMap.put("owner", username);
                 iMap.put("caption", img.getCaption());
-                iMap.put("tags", new ArrayList<>(img.getTags()));
+                iMap.put("tags", img.getTags());
                 iMap.put("date", img.getDate().toString());
                 iMap.put("likes", img.getLikeCount());
                 iMap.put("isLiked", img.isLikedBy(viewer));
                 iMap.put("comments", mapComments(img, viewer));
                 iMap.put("isFolder", false);
                 
-                // Deterministic parentId from cleaned up relationship
+                // Find parent album id
                 Long parentId = null;
-                if (!img.getAlbums().isEmpty()) {
-                    parentId = img.getAlbums().iterator().next().getId();
+                for (Album a : user.getAlbums()) {
+                    if (a.getImages().contains(img)) {
+                        parentId = a.getId();
+                        break;
+                    }
                 }
                 iMap.put("parentId", parentId);
 
@@ -361,87 +332,9 @@ class ClientHandler implements Runnable {
                 items.add(iMap);
             }
 
-            if (needsSave) DatabaseManager.save();
-
             Map<String, Object> data = new HashMap<>();
             data.put("items", items);
             return new Response(request.getRequestId(), 200, "Success", data);
-        } catch (Exception e) {
-            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
-        }
-    }
-
-    private Response handleAlbumMoveImages(Request request) {
-        String username = (String) request.getPayload().get("username");
-        Object rawImageIds = request.getPayload().get("imageIds");
-        Object rawSourceId = request.getPayload().get("sourceAlbumId");
-        Object rawTargetId = request.getPayload().get("targetAlbumId");
-
-        if (username == null || username.isEmpty() || rawImageIds == null || !(rawImageIds instanceof List)) {
-            return new Response(request.getRequestId(), 400, "Invalid Request: username and imageIds required", null);
-        }
-
-        List<?> rawList = (List<?>) rawImageIds;
-        if (rawList.isEmpty()) {
-            return new Response(request.getRequestId(), 400, "imageIds list is empty", null);
-        }
-
-        Long sourceId = (rawSourceId != null) ? ((Number) rawSourceId).longValue() : null;
-        Long targetId = (rawTargetId != null) ? ((Number) rawTargetId).longValue() : null;
-
-        if (sourceId != null && targetId != null && sourceId.equals(targetId)) {
-            return new Response(request.getRequestId(), 400, "Source and Target albums cannot be the same", null);
-        }
-
-        User user = findUser(username);
-        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
-        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
-        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "User not logged in", null);
-
-        Album sourceAlbum = null;
-        if (sourceId != null) {
-            sourceAlbum = user.getAlbums().stream().filter(a -> a.getId() == sourceId.longValue()).findFirst().orElse(null);
-            if (sourceAlbum == null) return new Response(request.getRequestId(), 404, "Source album not found", null);
-        }
-
-        Album targetAlbum = null;
-        if (targetId != null) {
-            targetAlbum = user.getAlbums().stream().filter(a -> a.getId() == targetId.longValue()).findFirst().orElse(null);
-            if (targetAlbum == null) return new Response(request.getRequestId(), 404, "Target album not found", null);
-        }
-
-        List<Image> targetImages = new ArrayList<>();
-        for (Object idObj : rawList) {
-            if (!(idObj instanceof Number)) return new Response(request.getRequestId(), 400, "All imageIds must be numeric", null);
-            long imgId = ((Number) idObj).longValue();
-            Image img = user.getImages().stream().filter(i -> i.getId() == imgId).findFirst().orElse(null);
-            if (img == null) return new Response(request.getRequestId(), 404, "Image with ID " + imgId + " not found or not owned by you", null);
-            targetImages.add(img);
-        }
-
-        try {
-            for (Image img : targetImages) {
-                // Remove from all user albums to ensure at most one album membership
-                for (Album a : new ArrayList<>(user.getAlbums())) {
-                    a.removeImageFromAlbumViaImage(img);
-                    img.removeAlbumViaAlbum(a);
-                }
-                
-                if (targetAlbum != null) {
-                    targetAlbum.addImageToAlbumViaImage(img);
-                    img.addNewAlbumViaAlbum(targetAlbum);
-                }
-            }
-
-            if (DatabaseManager.save()) {
-                Map<String, Object> data = new HashMap<>();
-                data.put("movedImageIds", rawList);
-                data.put("sourceAlbumId", sourceId);
-                data.put("targetAlbumId", targetId);
-                return new Response(request.getRequestId(), 200, "Images moved successfully", data);
-            } else {
-                return new Response(request.getRequestId(), 500, "Failed to save database", null);
-            }
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
         }
@@ -451,112 +344,17 @@ class ClientHandler implements Runnable {
         String username = (String) request.getPayload().get("username");
         String albumName = (String) request.getPayload().get("albumName");
 
-        if (username == null || username.trim().isEmpty() || albumName == null || albumName.trim().isEmpty()) {
-            return new Response(request.getRequestId(), 400, "Username and Album Name are required", null);
-        }
-
-        User user = findUser(username);
-        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
-        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
-        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "User not logged in", null);
-
-        try {
-            user.makeNewAlbum(albumName.trim());
-            Album newAlbum = user.getAlbums().get(user.getAlbums().size() - 1);
-            
-            if (DatabaseManager.save()) {
-                Map<String, Object> data = new HashMap<>();
-                Map<String, Object> albumData = new HashMap<>();
-                albumData.put("id", newAlbum.getId());
-                albumData.put("name", newAlbum.getName());
-                albumData.put("imageCount", newAlbum.getImages().size());
-                data.put("album", albumData);
-                return new Response(request.getRequestId(), 200, "Album Created Successfully", data);
-            } else {
-                return new Response(request.getRequestId(), 500, "Failed to save database", null);
-            }
-        } catch (Exception e) {
-            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
-        }
-    }
-
-    private Response handleAlbumRename(Request request) {
-        String username = (String) request.getPayload().get("username");
-        Object rawAlbumId = request.getPayload().get("albumId");
-        String newName = (String) request.getPayload().get("newName");
-
-        if (username == null || rawAlbumId == null || newName == null || newName.trim().isEmpty()) {
-            return new Response(request.getRequestId(), 400, "Missing required fields", null);
-        }
-
-        long albumId = ((Number) rawAlbumId).longValue();
-        User user = findUser(username);
-        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
-        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
-        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "User not logged in", null);
-
-        Album album = user.getAlbums().stream()
-                .filter(a -> a.getId() == albumId)
+        User user = Admin.allUsers.stream()
+                .filter(u -> u.getUsername().equals(username))
                 .findFirst()
                 .orElse(null);
 
-        if (album == null) return new Response(request.getRequestId(), 404, "Album Not Found in your collection", null);
-
-        try {
-            album.rename(newName.trim());
-            if (DatabaseManager.save()) {
-                Map<String, Object> data = new HashMap<>();
-                Map<String, Object> albumData = new HashMap<>();
-                albumData.put("id", album.getId());
-                albumData.put("name", album.getName());
-                albumData.put("imageCount", album.getImages().size());
-                data.put("album", albumData);
-                return new Response(request.getRequestId(), 200, "Album Renamed Successfully", data);
-            } else {
-                return new Response(request.getRequestId(), 500, "Failed to save database", null);
-            }
-        } catch (Exception e) {
-            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
-        }
-    }
-
-    private Response handleAlbumDelete(Request request) {
-        String username = (String) request.getPayload().get("username");
-        Object rawAlbumId = request.getPayload().get("albumId");
-
-        if (username == null || rawAlbumId == null) {
-            return new Response(request.getRequestId(), 400, "Username and Album ID are required", null);
-        }
-
-        long albumId = ((Number) rawAlbumId).longValue();
-        User user = findUser(username);
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
-        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
-        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "User not logged in", null);
-
-        Album album = user.getAlbums().stream()
-                .filter(a -> a.getId() == albumId)
-                .findFirst()
-                .orElse(null);
-
-        if (album == null) return new Response(request.getRequestId(), 404, "Album Not Found in your collection", null);
 
         try {
-            List<Long> preservedImageIds = new ArrayList<>();
-            for (Image img : album.getImages()) {
-                preservedImageIds.add(img.getId());
-            }
-
-            user.deleteAlbum(album);
-
-            if (DatabaseManager.save()) {
-                Map<String, Object> data = new HashMap<>();
-                data.put("deletedAlbumId", albumId);
-                data.put("preservedImageIds", preservedImageIds);
-                return new Response(request.getRequestId(), 200, "Album Deleted Successfully. Images preserved.", data);
-            } else {
-                return new Response(request.getRequestId(), 500, "Failed to save database", null);
-            }
+            user.makeNewAlbum(albumName);
+            DatabaseManager.save();
+            return new Response(request.getRequestId(), 200, "Album Created Successfully", new HashMap<>());
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
         }
@@ -655,10 +453,110 @@ class ClientHandler implements Runnable {
         }
     }
 
+    private Response handleCommentLike(Request request) {
+        String username = (String) request.getPayload().get("username");
+        Object rawCid = request.getPayload().get("commentId");
+        if (username == null || rawCid == null) return new Response(request.getRequestId(), 400, "Missing fields", null);
+        long commentId = ((Number) rawCid).longValue();
+
+        User user = findUser(username);
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
+        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "Not Logged In", null);
+
+        Comment target = findCommentGlobally(commentId);
+        if (target == null) return new Response(request.getRequestId(), 404, "Comment Not Found", null);
+
+        try {
+            user.addOrRemoveLikeComment(target);
+            if (DatabaseManager.save()) {
+                Map<String, Object> data = new HashMap<>();
+                Map<String, Object> cData = new HashMap<>();
+                cData.put("id", target.getId());
+                cData.put("likes", target.getLikes());
+                cData.put("isLiked", target.isLikedBy(user));
+                data.put("comment", cData);
+                return new Response(request.getRequestId(), 200, "Success", data);
+            }
+            return new Response(request.getRequestId(), 500, "Persistence Failure", null);
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, e.getMessage(), null);
+        }
+    }
+
+    private Response handleCommentDelete(Request request) {
+        String username = (String) request.getPayload().get("username");
+        Object rawCid = request.getPayload().get("commentId");
+        if (username == null || rawCid == null) return new Response(request.getRequestId(), 400, "Missing fields", null);
+        long commentId = ((Number) rawCid).longValue();
+
+        User user = findUser(username);
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
+        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "Not Logged In", null);
+
+        Comment targetComment = findCommentGlobally(commentId);
+        if (targetComment == null) return new Response(request.getRequestId(), 404, "Comment Not Found", null);
+
+        try {
+            User commentOwner = getPrivateField(targetComment, "owner");
+            if (!commentOwner.equals(user)) {
+                return new Response(request.getRequestId(), 403, "Forbidden: Only author can delete", null);
+            }
+
+            // Find image containing the comment
+            Image targetImage = null;
+            outer: for (User u : Admin.allUsers) {
+                for (Image img : u.getImages()) {
+                    if (img.getComments().contains(targetComment)) {
+                        targetImage = img;
+                        break outer;
+                    }
+                }
+            }
+
+            if (targetImage != null) {
+                targetImage.getComments().remove(targetComment);
+            }
+
+            // Remove from owner's yourComments
+            Set<Comment> ownerComments = getPrivateField(commentOwner, "yourComments");
+            ownerComments.remove(targetComment);
+
+            // Remove from every user's likedComment collection
+            for (User u : Admin.allUsers) {
+                u.getLikedComment().remove(targetComment);
+            }
+
+            // Clear usersWhoLiked on the comment
+            Set<User> cLikedBy = getPrivateField(targetComment, "usersWhoLiked");
+            cLikedBy.clear();
+
+            if (DatabaseManager.save()) {
+                return new Response(request.getRequestId(), 200, "Comment Deleted", Map.of("deletedCommentId", commentId));
+            }
+            return new Response(request.getRequestId(), 500, "Persistence Failure", null);
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, e.getMessage(), null);
+        }
+    }
+
+    private Comment findCommentGlobally(long commentId) {
+        for (User u : Admin.allUsers) {
+            for (Image img : u.getImages()) {
+                for (Comment c : img.getComments()) {
+                    if (c.getId() == commentId) return c;
+                }
+            }
+        }
+        return null;
+    }
+
     private List<Map<String, Object>> mapComments(Image image, User viewer) {
         List<Map<String, Object>> commentList = new ArrayList<>();
         for (Comment c : image.getComments()) {
             Map<String, Object> cMap = new HashMap<>();
+            cMap.put("id", c.getId());
             cMap.put("username", c.getOwnerUsername());
             cMap.put("text", c.getComment());
             cMap.put("date", c.getDate().toString());

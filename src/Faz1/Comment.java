@@ -1,17 +1,18 @@
 package Faz1;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 public class Comment {
+    private final long id;
     private String comment;
     private Image image;
     private User owner;
     private Set<User> usersWhoLiked = new HashSet<>();
     private long likes;
     private LocalDateTime date;
+
+    private static final Set<Long> allUsedIds = new HashSet<>();
 
     public Comment(User user, Image image, String comment) throws Exception {
         owner = user;
@@ -20,6 +21,25 @@ public class Comment {
             throw new Exception("caption should be under 1000 charecter");
         else this.comment = comment;
         date = LocalDateTime.now();
+        this.id = generateGlobalUniqueId();
+    }
+
+    private static synchronized long generateGlobalUniqueId() {
+        Random random = new Random();
+        long idCreated;
+        do {
+            idCreated = 100000L + random.nextInt(900000);
+        } while (allUsedIds.contains(idCreated));
+        allUsedIds.add(idCreated);
+        return idCreated;
+    }
+
+    public static void registerId(long id) {
+        allUsedIds.add(id);
+    }
+
+    public long getId() {
+        return id;
     }
 
     public void addLikeAndRemoveComment(User user) {
