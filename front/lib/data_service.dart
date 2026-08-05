@@ -254,27 +254,77 @@ class DataService {
     }
   }
 
-  Future<void> addAlbum(String username, String name) async {
+  Future<ApiResponse> addAlbum(String name) async {
+    if (currentUsername == null) return ApiResponse.error('Not logged in');
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty)
+      return ApiResponse.error('Album name cannot be empty');
+
     try {
-      await SocketClient().sendRequest(
+      return await SocketClient().sendRequest(
         ApiRequest(
           route: ApiRoutes.createAlbum,
-          payload: {'albumName': name, 'username': username},
+          payload: {'albumName': trimmedName, 'username': currentUsername},
         ),
       );
     } catch (e) {
       debugPrint('Error creating album in addAlbum: $e');
+      return ApiResponse.error(e.toString());
     }
   }
 
-  Future<void> addImage(String username, Map<String, dynamic> data) async {
+  Future<ApiResponse> renameAlbum({
+    required int albumId,
+    required String newName,
+  }) async {
+    if (currentUsername == null) return ApiResponse.error('Not logged in');
+    final trimmedName = newName.trim();
+    if (trimmedName.isEmpty)
+      return ApiResponse.error('New name cannot be empty');
+
+    try {
+      return await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.renameAlbum,
+          payload: {
+            'username': currentUsername,
+            'albumId': albumId,
+            'newName': trimmedName,
+          },
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error renaming album: $e');
+      return ApiResponse.error(e.toString());
+    }
+  }
+
+  Future<ApiResponse> deleteAlbum(int albumId) async {
+    if (currentUsername == null) return ApiResponse.error('Not logged in');
+    try {
+      return await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.deleteAlbum,
+          payload: {'username': currentUsername, 'albumId': albumId},
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error deleting album: $e');
+      return ApiResponse.error(e.toString());
+    }
+  }
+
+  Future<ApiResponse> addImage(
+    String username,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final File? file = data['imageFile'];
-      if (file == null) return;
+      if (file == null) return ApiResponse.error('No image selected');
       final bytes = await file.readAsBytes();
       final base64Image = base64Encode(bytes);
 
-      await SocketClient().sendRequest(
+      return await SocketClient().sendRequest(
         ApiRequest(
           route: ApiRoutes.uploadImage,
           payload: {
@@ -290,6 +340,33 @@ class DataService {
       );
     } catch (e) {
       debugPrint('Error uploading image in addImage: $e');
+      return ApiResponse.error(e.toString());
+    }
+  }
+
+  Future<ApiResponse> moveImages({
+    required List<int> imageIds,
+    int? sourceAlbumId,
+    int? targetAlbumId,
+  }) async {
+    if (currentUsername == null) return ApiResponse.error('Not logged in');
+    if (imageIds.isEmpty) return ApiResponse.error('No images selected');
+
+    try {
+      return await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.moveImages,
+          payload: {
+            'username': currentUsername,
+            'imageIds': imageIds,
+            'sourceAlbumId': sourceAlbumId,
+            'targetAlbumId': targetAlbumId,
+          },
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error moving images: $e');
+      return ApiResponse.error(e.toString());
     }
   }
 

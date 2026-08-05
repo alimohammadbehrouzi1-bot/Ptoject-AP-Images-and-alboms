@@ -10,6 +10,8 @@ abstract final class ApiRoutes {
   static const uploadImage = 'image/upload';
 
   static const createAlbum = 'album/create';
+  static const renameAlbum = 'albums/rename';
+  static const deleteAlbum = 'albums/delete';
 
   static const likeImage = 'interaction/like';
   static const addComment = 'interaction/comment';
@@ -24,7 +26,6 @@ abstract final class ApiRoutes {
   static const updateImage = 'images/update';
   static const deleteImage = 'images/delete';
   static const likeComment = 'comments/like';
-  static const deleteAlbum = 'albums/delete';
   static const moveImages = 'albums/move-images';
   static const searchUser = 'users/search';
   static const updateProfile = 'users/update';

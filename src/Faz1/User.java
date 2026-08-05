@@ -356,8 +356,12 @@ public class User {
             throw new Exception("album is null");
         }
         if (albums.contains(album)) {
+            // 1. Bidirectional cleanup: remove album from images and images from album
+            for (Image image : new HashSet<>(album.getImages())) {
+                album.removeImageFromAlbum(image);
+            }
+            // 2. Remove album from user's albums list
             this.albums.remove(album);
-            album.getImages().stream().forEach(a -> a.getAlbums().remove(album));
         }
     }
 

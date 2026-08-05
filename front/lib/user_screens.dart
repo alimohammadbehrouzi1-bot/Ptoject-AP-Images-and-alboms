@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:typed_data';
+import 'core/network/api_response.dart';
 import 'data_service.dart';
 import 'auth_screens.dart';
 
@@ -538,6 +539,15 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
     );
     setState(() {
       _allVaultItems = items;
+      if (_currentAlbum != null) {
+        try {
+          _currentAlbum = items.firstWhere(
+            (i) => i.isFolder && i.id == _currentAlbum!.id,
+          );
+        } catch (e) {
+          _currentAlbum = null;
+        }
+      }
       _visibleItems.clear();
       _isLastPage = false;
       _loadMore();
@@ -664,6 +674,14 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
                   : null),
         actions: _isSelectionMode
             ? [
+                if (_selectedIds.length == 1 &&
+                    _allVaultItems
+                        .firstWhere((i) => i.id == _selectedIds.first)
+                        .isFolder)
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: Colors.orange),
+                    onPressed: () => _showRenameDialog(_selectedIds.first),
+                  ),
                 if (canMove)
                   IconButton(
                     icon: const Icon(
@@ -681,6 +699,16 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
                 ),
               ]
             : [
+                if (_currentAlbum != null)
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _showRenameDialog(_currentAlbum!.id),
+                  ),
+                if (_currentAlbum != null)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => _confirmDeleteCurrentAlbum(),
+                  ),
                 GestureDetector(
                   onTap: () => _showUserSheet(),
                   child: Padding(
@@ -805,17 +833,27 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
       child: Row(
         children: [
           _btn(Icons.add_a_photo, "Upload", Colors.blue, () async {
+            final albums = _allVaultItems.where((i) => i.isFolder).toList();
             final res = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => UploadImageScreen(
-                  albums: const [], // Simplified for now
+                  albums: albums,
+                  initialAlbumId: _currentAlbum?.id,
                 ),
               ),
             );
             if (res != null) {
-              await DataService().addImage(widget.username, res);
-              _refresh();
+              final resp = await DataService().addImage(widget.username, res);
+              if (mounted) {
+                if (resp.isSuccess) {
+                  _refresh();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(resp.message ?? 'Upload failed')),
+                  );
+                }
+              }
             }
           }),
           const SizedBox(width: 12),
@@ -899,21 +937,123 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
 
   void _showCreateAlbum() {
     final c = TextEditingController();
+    bool isSaving = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New Album'),
-        content: TextField(controller: c),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              DataService().addAlbum(widget.username, c.text);
-              _refresh();
-              Navigator.pop(context);
-            },
-            child: const Text('Create'),
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('New Album'),
+          content: TextField(
+            controller: c,
+            decoration: const InputDecoration(
+              labelText: 'Album Name',
+              hintText: 'Enter album name',
+            ),
+            enabled: !isSaving,
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      final name = c.text.trim();
+                      if (name.isEmpty) return;
+
+                      setDialogState(() => isSaving = true);
+                      final resp = await DataService().addAlbum(name);
+
+                      if (mounted) {
+                        if (resp.isSuccess) {
+                          Navigator.pop(context);
+                          _refresh();
+                        } else {
+                          setDialogState(() => isSaving = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(resp.message ?? 'Error')),
+                          );
+                        }
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRenameDialog(int id) {
+    final item = _allVaultItems.firstWhere((i) => i.id == id);
+    final c = TextEditingController(text: item.name);
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Rename Album'),
+          content: TextField(
+            controller: c,
+            decoration: const InputDecoration(labelText: 'New Name'),
+            enabled: !isSaving,
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      final name = c.text.trim();
+                      if (name.isEmpty) return;
+
+                      setDialogState(() => isSaving = true);
+                      final resp = await DataService().renameAlbum(
+                        albumId: id,
+                        newName: name,
+                      );
+
+                      if (mounted) {
+                        if (resp.isSuccess) {
+                          setState(() {
+                            _isSelectionMode = false;
+                            _selectedIds.clear();
+                          });
+                          Navigator.pop(context);
+                          _refresh();
+                        } else {
+                          setDialogState(() => isSaving = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(resp.message ?? 'Error')),
+                          );
+                        }
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -928,8 +1068,8 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
           builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text('Delete Items?'),
-              content: Text(
-                'Delete ${_selectedIds.length} selected item(s)? This action cannot be undone.',
+              content: const Text(
+                'Are you sure you want to delete selected items? Deleting albums will not delete photos inside them.',
               ),
               actions: [
                 TextButton(
@@ -955,8 +1095,14 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
                                 date: DateTime.now(),
                               ),
                             );
-                            if (item.id != -1 && !item.isFolder) {
-                              final resp = await DataService().deleteImage(id);
+                            if (item.id != -1) {
+                              final ApiResponse resp;
+                              if (item.isFolder) {
+                                resp = await DataService().deleteAlbum(id);
+                              } else {
+                                resp = await DataService().deleteImage(id);
+                              }
+
                               if (!resp.isSuccess) {
                                 anyError = true;
                                 lastErrorMessage = resp.message;
@@ -1005,42 +1151,189 @@ class _MyStuffsPageState extends State<MyStuffsPage> {
     );
   }
 
-  void _showMoveDialog() {
+  void _confirmDeleteCurrentAlbum() {
+    if (_currentAlbum == null) return;
+    final albumName = _currentAlbum!.name;
+    final albumId = _currentAlbum!.id;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Move to...'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(
-                title: const Text('Root'),
-                onTap: () {
-                  DataService().movePhotos(_selectedIds.toList(), null);
-                  _refresh();
-                  Navigator.pop(context);
-                  setState(() => _isSelectionMode = false);
-                },
+      barrierDismissible: false,
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Delete Album?'),
+              content: Text(
+                'Are you sure you want to delete "$albumName"? Photos inside will be preserved.',
               ),
-              ..._allVaultItems
-                  .where((i) => i.isFolder)
-                  .map(
-                    (f) => ListTile(
-                      title: Text(f.name),
-                      onTap: () {
-                        DataService().movePhotos(_selectedIds.toList(), f.id);
-                        _refresh();
-                        Navigator.pop(context);
-                        setState(() => _isSelectionMode = false);
-                      },
-                    ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                          setDialogState(() => isDeleting = true);
+                          final resp = await DataService().deleteAlbum(albumId);
+                          if (mounted) {
+                            if (resp.isSuccess) {
+                              setState(() {
+                                _currentAlbum = null;
+                              });
+                              Navigator.pop(context);
+                              _refresh();
+                            } else {
+                              setDialogState(() => isDeleting = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(resp.message ?? 'Error'),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
                   ),
-            ],
-          ),
-        ),
-      ),
+                  child: isDeleting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Delete'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showMoveDialog() {
+    final selectedItems = _allVaultItems
+        .where((i) => _selectedIds.contains(i.id))
+        .toList();
+    if (selectedItems.any((i) => i.isFolder)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Only images can be moved')));
+      return;
+    }
+
+    final albums = _allVaultItems.where((i) => i.isFolder).toList();
+    final sourceId = _currentAlbum?.id;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        bool isMoving = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Move to...'),
+              content: isMoving
+                  ? const SizedBox(
+                      height: 100,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : SizedBox(
+                      width: double.maxFinite,
+                      child: ListView(
+                        shrinkWrap: true,
+                        children: [
+                          if (sourceId != null)
+                            ListTile(
+                              leading: const Icon(Icons.folder_open),
+                              title: const Text('Root'),
+                              onTap: () async {
+                                setDialogState(() => isMoving = true);
+                                final resp = await DataService().moveImages(
+                                  imageIds: _selectedIds.toList(),
+                                  sourceAlbumId: sourceId,
+                                  targetAlbumId: null,
+                                );
+                                if (mounted) {
+                                  if (resp.isSuccess) {
+                                    setState(() {
+                                      _isSelectionMode = false;
+                                      _selectedIds.clear();
+                                    });
+                                    Navigator.pop(context);
+                                    _refresh();
+                                  } else {
+                                    setDialogState(() => isMoving = false);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          resp.message ?? 'Move failed',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          ...albums
+                              .where((a) => a.id != sourceId)
+                              .map(
+                                (f) => ListTile(
+                                  leading: const Icon(Icons.folder),
+                                  title: Text(f.name),
+                                  onTap: () async {
+                                    setDialogState(() => isMoving = true);
+                                    final resp = await DataService().moveImages(
+                                      imageIds: _selectedIds.toList(),
+                                      sourceAlbumId: sourceId,
+                                      targetAlbumId: f.id,
+                                    );
+                                    if (mounted) {
+                                      if (resp.isSuccess) {
+                                        setState(() {
+                                          _isSelectionMode = false;
+                                          _selectedIds.clear();
+                                        });
+                                        Navigator.pop(context);
+                                        _refresh();
+                                      } else {
+                                        setDialogState(() => isMoving = false);
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              resp.message ?? 'Move failed',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ),
+                        ],
+                      ),
+                    ),
+              actions: [
+                TextButton(
+                  onPressed: isMoving ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1970,7 +2263,12 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
 
 class UploadImageScreen extends StatefulWidget {
   final List<FileItem> albums;
-  const UploadImageScreen({super.key, required this.albums});
+  final int? initialAlbumId;
+  const UploadImageScreen({
+    super.key,
+    required this.albums,
+    this.initialAlbumId,
+  });
   @override
   State<UploadImageScreen> createState() => _UploadImageScreenState();
 }
@@ -1984,6 +2282,12 @@ class _UploadImageScreenState extends State<UploadImageScreen> {
   File? _imageFile;
   String? _originalFileName;
   final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    selectedAlbumId = widget.initialAlbumId;
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     final XFile? image = await _picker.pickImage(source: source);

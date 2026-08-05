@@ -28,7 +28,15 @@
   "albums": [
     {
       "id": 75180,
-      "name": "AvalinAlbum",
+      "name": "Avalin",
+      "ownerUsername": "mahan1234",
+      "imageIds": [
+        97964
+      ]
+    },
+    {
+      "id": 51517,
+      "name": "uxj",
       "ownerUsername": "mahan1234",
       "imageIds": []
     }
@@ -47,6 +55,39 @@
       "usersWhoLikedUsernames": [
         "mahan1234"
       ],
+      "comments": []
+    },
+    {
+      "id": 83642,
+      "name": "ou",
+      "path": "storage/images/6369754e-14fa-4ef2-90b3-116e938446e0.png",
+      "date": "2026-08-05T23:37:51.631360",
+      "caption": "xx",
+      "tags": [],
+      "ownerUsername": "mahan1234",
+      "usersWhoLikedUsernames": [],
+      "comments": []
+    },
+    {
+      "id": 17500,
+      "name": "mmm",
+      "path": "storage/images/f969d2fb-9171-4efe-9833-47f78be36716.png",
+      "date": "2026-08-05T23:42:21.775621300",
+      "caption": "kljkl",
+      "tags": [],
+      "ownerUsername": "mahan1234",
+      "usersWhoLikedUsernames": [],
+      "comments": []
+    },
+    {
+      "id": 97964,
+      "name": "adcasfds",
+      "path": "storage/images/28e8a1b3-08f3-44d9-92d8-3eb375a9d8b5.png",
+      "date": "2026-08-06T00:01:52.562962600",
+      "caption": "",
+      "tags": [],
+      "ownerUsername": "mahan1234",
+      "usersWhoLikedUsernames": [],
       "comments": []
     }
   ]
