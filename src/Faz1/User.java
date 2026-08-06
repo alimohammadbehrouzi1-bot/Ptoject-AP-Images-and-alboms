@@ -299,24 +299,8 @@ public class User {
     }
 
     public void setPassword(String password) throws Exception {
-        boolean hasUpper = false;
-        boolean hasLower = false;
-        boolean hasDigit = false;
-        if (password.length() >= 8) {
-            if (!password.contains(this.getUsername())) {
-                for (char c : password.toCharArray()) {
-                    if (Character.isUpperCase(c)) hasUpper = true;
-                    else if (Character.isLowerCase(c)) hasLower = true;
-                    else if (Character.isDigit(c)) hasDigit = true;
-                }
-                if (hasDigit && hasLower && hasUpper) {
-                    this.password = password;
-                    return;
-                } else throw new Exception("Password must contain uppercase, lowercase and digit.");
-            }
-            throw new Exception("Password must not contain username.");
-        }
-        throw new Exception("Password must be at least 8 characters.");
+        ServiesFaz1.IsValid.validatePassword(this.getUsername(), password);
+        this.password = password;
     }
 
     private void setUsername(String username) throws Exception {

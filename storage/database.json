@@ -7,8 +7,8 @@
       "phoneNumber": 989127449987,
       "banned": false,
       "likedImageIds": [
-        97964,
-        55955
+        55955,
+        97964
       ]
     },
     {
@@ -23,7 +23,7 @@
   "admins": [
     {
       "username": "admin",
-      "password": "admin"
+      "password": "Admin4321"
     }
   ],
   "albums": [
@@ -39,9 +39,7 @@
       "id": 36070,
       "name": "new",
       "ownerUsername": "mahan4321",
-      "imageIds": [
-        83642
-      ]
+      "imageIds": []
     }
   ],
   "images": [

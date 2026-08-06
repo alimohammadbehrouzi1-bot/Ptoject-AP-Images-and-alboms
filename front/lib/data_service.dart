@@ -145,6 +145,27 @@ class DataService {
     }
   }
 
+  Future<ApiResponse> changeAdminPassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      return await SocketClient().sendRequest(
+        ApiRequest(
+          route: ApiRoutes.changeAdminPassword,
+          payload: {
+            'username': 'admin',
+            'oldPassword': oldPassword,
+            'newPassword': newPassword,
+          },
+        ),
+      );
+    } catch (e) {
+      debugPrint('Admin change password error: $e');
+      return ApiResponse.error(e.toString());
+    }
+  }
+
   Future<ApiResponse> updateProfile({
     required String oldUsername,
     required String newUsername,

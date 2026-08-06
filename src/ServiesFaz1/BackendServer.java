@@ -91,6 +91,7 @@ class ClientHandler implements Runnable {
             case "comments/delete": return handleCommentDelete(request);
             case "admin/users-list": return handleAdminUsersList(request);
             case "admin/toggle-ban": return handleAdminToggleBan(request);
+            case "admin/change-password": return handleAdminChangePassword(request);
             case "images/user-vault": return handleImageGetUserVault(request);
             case "images/update": return handleImageUpdate(request);
             case "images/delete": return handleImageDelete(request);
@@ -450,6 +451,8 @@ class ClientHandler implements Runnable {
             for (User u : Admin.allUsers) {
                 Map<String, Object> uMap = new HashMap<>();
                 uMap.put("username", u.getUsername());
+                uMap.put("email", u.getEmail());
+                uMap.put("phone", u.getPhoneNumber());
                 uMap.put("isBanned", u.isBanned());
                 uMap.put("photoCount", u.getImages().size());
                 uMap.put("albumCount", u.getAlbums().size());
@@ -476,6 +479,31 @@ class ClientHandler implements Runnable {
             return new Response(request.getRequestId(), 200, "User Ban Status Toggled", new HashMap<>());
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
+        }
+    }
+
+    private Response handleAdminChangePassword(Request request) {
+        String username = (String) request.getPayload().get("username");
+        String oldPassword = (String) request.getPayload().get("oldPassword");
+        String newPassword = (String) request.getPayload().get("newPassword");
+
+        try {
+            // 1. Verify current admin credentials
+            Admin admin = Admin.Login(username, oldPassword);
+
+            // 2. Validate new password using shared project rules
+            IsValid.validatePassword(username, newPassword);
+
+            // 3. Update password
+            admin.ChangePassword(username, oldPassword, newPassword);
+
+            // 4. Save changes
+            DatabaseManager.save();
+
+            return new Response(request.getRequestId(), 200, "Admin Password Changed Successfully", new HashMap<>());
+        } catch (Exception e) {
+            int statusCode = e.getMessage().contains("no such admin") ? 401 : 400;
+            return new Response(request.getRequestId(), statusCode, e.getMessage(), null);
         }
     }
 

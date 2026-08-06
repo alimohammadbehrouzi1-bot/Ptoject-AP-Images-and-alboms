@@ -121,9 +121,9 @@ class _AdminDashboardState extends State<AdminDashboard>
             ),
             const SizedBox(height: 24),
             _row('Username', u['username']),
-            _row('Email', u['email']),
-            _row('Phone', u['phone']),
-            _row('Status', u['isBanned'] ? 'Banned' : 'Active'),
+            _row('Email', u['email'] ?? 'Not provided'),
+            _row('Phone', u['phone']?.toString() ?? 'Not provided'),
+            _row('Status', (u['isBanned'] ?? false) ? 'Banned' : 'Active'),
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
@@ -191,20 +191,48 @@ class _AdminDashboardState extends State<AdminDashboard>
   }
 
   void _showChangePass() {
+    final oldC = TextEditingController();
+    final newC = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Change Password'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(decoration: InputDecoration(labelText: 'Old Password')),
-            TextField(decoration: InputDecoration(labelText: 'New Password')),
+            TextField(
+              controller: oldC,
+              decoration: const InputDecoration(labelText: 'Old Password'),
+              obscureText: true,
+            ),
+            TextField(
+              controller: newC,
+              decoration: const InputDecoration(labelText: 'New Password'),
+              obscureText: true,
+            ),
           ],
         ),
         actions: [
-          ElevatedButton(
+          TextButton(
             onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final res = await DataService().changeAdminPassword(
+                oldPassword: oldC.text,
+                newPassword: newC.text,
+              );
+              if (mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(res.message ?? 'Unknown error'),
+                    backgroundColor: res.isSuccess ? Colors.green : Colors.red,
+                  ),
+                );
+              }
+            },
             child: const Text('Update'),
           ),
         ],
