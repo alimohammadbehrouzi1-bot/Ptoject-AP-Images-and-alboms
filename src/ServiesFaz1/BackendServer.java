@@ -15,7 +15,7 @@ import java.nio.file.Paths;
 import java.util.*;
 
 public class BackendServer {
-    private static final int PORT = 8080;
+    private static final int PORT = 8081;
 
     public void start() {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
@@ -38,21 +38,6 @@ public class BackendServer {
 class ClientHandler implements Runnable {
     private final Socket socket;
     private final Gson gson = new Gson();
-    private static final Map<String, String> routes = new HashMap<>();
-
-    static {
-        routes.put("auth/login", "auth");
-        routes.put("auth/register", "auth");
-        routes.put("admin/login", "admin");
-        routes.put("album/create", "album");
-        routes.put("interaction/like", "interaction");
-        routes.put("interaction/comment", "interaction");
-        routes.put("admin/users-list", "admin");
-        routes.put("admin/toggle-ban", "admin");
-        routes.put("images/user-vault", "images");
-        routes.put("users/change-password", "users");
-        routes.put("users/update", "users");
-    }
 
     public ClientHandler(Socket socket) {
         this.socket = socket;
@@ -70,16 +55,20 @@ class ClientHandler implements Runnable {
                     Request request = gson.fromJson(inputLine, Request.class);
                     Response response = handleRouting(request);
                     out.println(gson.toJson(response));
+                    out.flush();
                 } catch (Exception e) {
                     Response errorResponse = new Response(null, 500, "Internal Server Error: " + e.getMessage(), null);
                     out.println(gson.toJson(errorResponse));
+                    out.flush();
                 }
             }
         } catch (IOException e) {
             System.err.println("Handler error: " + e.getMessage());
         } finally {
             try {
-                socket.close();
+                if (!socket.isClosed()) {
+                    socket.close();
+                }
             } catch (IOException e) {
                 System.err.println("Socket close error: " + e.getMessage());
             }
@@ -95,6 +84,7 @@ class ClientHandler implements Runnable {
             case "image/upload": return handleImageUpload(request);
             case "image/get-all": return handleImageGetAll(request);
             case "album/create": return handleAlbumCreate(request);
+            case "albums/move-images": return handleMoveImages(request);
             case "interaction/like": return handleInteractionLike(request);
             case "interaction/comment": return handleInteractionComment(request);
             case "comments/like": return handleCommentLike(request);
@@ -106,6 +96,7 @@ class ClientHandler implements Runnable {
             case "images/delete": return handleImageDelete(request);
             case "users/change-password": return handleUserChangePassword(request);
             case "users/update": return handleUserUpdate(request);
+            case "users/delete": return handleDeleteAccount(request);
             default: return new Response(request.getRequestId(), 404, "Route Not Found", null);
         }
     }
@@ -114,10 +105,7 @@ class ClientHandler implements Runnable {
         String username = (String) request.getPayload().get("username");
         String password = (String) request.getPayload().get("password");
 
-        User user = Admin.allUsers.stream()
-                .filter(u -> u.getUsername().equals(username))
-                .findFirst()
-                .orElse(null);
+        User user = findUser(username);
 
         if (user != null) {
             if (user.isBanned()) {
@@ -174,10 +162,7 @@ class ClientHandler implements Runnable {
         Long albumId = (albumIdRaw != null) ? ((Double) albumIdRaw).longValue() : null;
         Set<String> tags = new HashSet<>(tagsList != null ? tagsList : new ArrayList<>());
 
-        User user = Admin.allUsers.stream()
-                .filter(u -> u.getUsername().equals(username))
-                .findFirst()
-                .orElse(null);
+        User user = findUserAndEnsureLoggedIn(username);
 
         if (user == null) {
             return new Response(request.getRequestId(), 404, "User Not Found", null);
@@ -229,34 +214,12 @@ class ClientHandler implements Runnable {
     private Response handleImageGetAll(Request request) {
         try {
             String viewerUsername = (String) request.getPayload().get("viewerUsername");
-            User viewer = viewerUsername != null ? Admin.allUsers.stream()
-                    .filter(u -> u.getUsername().equals(viewerUsername))
-                    .findFirst()
-                    .orElse(null) : null;
+            User viewer = viewerUsername != null ? findUser(viewerUsername) : null;
 
             List<Map<String, Object>> imageList = new ArrayList<>();
             for (User user : Admin.allUsers) {
                 for (Image img : user.getImages()) {
-                    Map<String, Object> imgMap = new HashMap<>();
-                    imgMap.put("id", img.getId());
-                    imgMap.put("name", img.getName());
-                    imgMap.put("owner", user.getUsername());
-                    imgMap.put("caption", img.getCaption());
-                    imgMap.put("tags", img.getTags());
-                    imgMap.put("likes", img.getLikeCount());
-                    imgMap.put("isLiked", img.isLikedBy(viewer));
-                    imgMap.put("comments", mapComments(img, viewer));
-
-                    String path = img.getPath();
-                    if (path != null) {
-                        try {
-                            byte[] bytes = Files.readAllBytes(Paths.get(path));
-                            imgMap.put("imageData", Base64.getEncoder().encodeToString(bytes));
-                        } catch (IOException e) {
-                            imgMap.put("imageData", null);
-                        }
-                    }
-                    imageList.add(imgMap);
+                    imageList.add(_imageToMap(img, user.getUsername(), viewer));
                 }
             }
             Map<String, Object> data = new HashMap<>();
@@ -271,15 +234,8 @@ class ClientHandler implements Runnable {
         String username = (String) request.getPayload().get("username");
         String viewerUsername = (String) request.getPayload().get("viewerUsername");
 
-        User user = Admin.allUsers.stream()
-                .filter(u -> u.getUsername().equals(username))
-                .findFirst()
-                .orElse(null);
-
-        User viewer = viewerUsername != null ? Admin.allUsers.stream()
-                .filter(u -> u.getUsername().equals(viewerUsername))
-                .findFirst()
-                .orElse(null) : null;
+        User user = findUser(username);
+        User viewer = findUser(viewerUsername);
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
@@ -298,16 +254,7 @@ class ClientHandler implements Runnable {
 
             // Map Images
             for (Image img : user.getImages()) {
-                Map<String, Object> iMap = new HashMap<>();
-                iMap.put("id", img.getId());
-                iMap.put("name", img.getName());
-                iMap.put("owner", username);
-                iMap.put("caption", img.getCaption());
-                iMap.put("tags", img.getTags());
-                iMap.put("date", img.getDate().toString());
-                iMap.put("likes", img.getLikeCount());
-                iMap.put("isLiked", img.isLikedBy(viewer));
-                iMap.put("comments", mapComments(img, viewer));
+                Map<String, Object> iMap = _imageToMap(img, username, viewer);
                 iMap.put("isFolder", false);
                 
                 // Find parent album id
@@ -319,16 +266,6 @@ class ClientHandler implements Runnable {
                     }
                 }
                 iMap.put("parentId", parentId);
-
-                String path = img.getPath();
-                if (path != null) {
-                    try {
-                        byte[] bytes = Files.readAllBytes(Paths.get(path));
-                        iMap.put("imageData", Base64.getEncoder().encodeToString(bytes));
-                    } catch (IOException e) {
-                        iMap.put("imageData", null);
-                    }
-                }
                 items.add(iMap);
             }
 
@@ -344,10 +281,7 @@ class ClientHandler implements Runnable {
         String username = (String) request.getPayload().get("username");
         String albumName = (String) request.getPayload().get("albumName");
 
-        User user = Admin.allUsers.stream()
-                .filter(u -> u.getUsername().equals(username))
-                .findFirst()
-                .orElse(null);
+        User user = findUserAndEnsureLoggedIn(username);
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
@@ -366,20 +300,11 @@ class ClientHandler implements Runnable {
         if (rawId == null) return new Response(request.getRequestId(), 400, "Missing imageId", null);
         long imageId = ((Number) rawId).longValue();
 
-        User user = findUser(username);
+        User user = findUserAndEnsureLoggedIn(username);
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
-        Image targetImage = null;
-        for (User u : Admin.allUsers) {
-            for (Image img : u.getImages()) {
-                if (img.getId() == imageId) {
-                    targetImage = img;
-                    break;
-                }
-            }
-            if (targetImage != null) break;
-        }
+        Image targetImage = findImage(imageId);
 
         if (targetImage == null) return new Response(request.getRequestId(), 404, "Image Not Found", null);
 
@@ -416,20 +341,11 @@ class ClientHandler implements Runnable {
 
         long imageId = ((Number) imageIdRaw).longValue();
 
-        User user = findUser(username);
+        User user = findUserAndEnsureLoggedIn(username);
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
-        Image targetImage = null;
-        for (User u : Admin.allUsers) {
-            for (Image img : u.getImages()) {
-                if (img.getId() == imageId) {
-                    targetImage = img;
-                    break;
-                }
-            }
-            if (targetImage != null) break;
-        }
+        Image targetImage = findImage(imageId);
 
         if (targetImage == null) return new Response(request.getRequestId(), 404, "Image Not Found", null);
 
@@ -438,6 +354,7 @@ class ClientHandler implements Runnable {
             DatabaseManager.save();
 
             Map<String, Object> commentData = new HashMap<>();
+            commentData.put("id", createdComment.getId());
             commentData.put("username", createdComment.getOwnerUsername());
             commentData.put("text", createdComment.getComment());
             commentData.put("date", createdComment.getDate().toString());
@@ -459,26 +376,23 @@ class ClientHandler implements Runnable {
         if (username == null || rawCid == null) return new Response(request.getRequestId(), 400, "Missing fields", null);
         long commentId = ((Number) rawCid).longValue();
 
-        User user = findUser(username);
+        User user = findUserAndEnsureLoggedIn(username);
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
-        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
-        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "Not Logged In", null);
 
         Comment target = findCommentGlobally(commentId);
         if (target == null) return new Response(request.getRequestId(), 404, "Comment Not Found", null);
 
         try {
             user.addOrRemoveLikeComment(target);
-            if (DatabaseManager.save()) {
-                Map<String, Object> data = new HashMap<>();
-                Map<String, Object> cData = new HashMap<>();
-                cData.put("id", target.getId());
-                cData.put("likes", target.getLikes());
-                cData.put("isLiked", target.isLikedBy(user));
-                data.put("comment", cData);
-                return new Response(request.getRequestId(), 200, "Success", data);
-            }
-            return new Response(request.getRequestId(), 500, "Persistence Failure", null);
+            DatabaseManager.save();
+            
+            Map<String, Object> data = new HashMap<>();
+            Map<String, Object> cData = new HashMap<>();
+            cData.put("id", target.getId());
+            cData.put("likes", target.getLikes());
+            cData.put("isLiked", target.isLikedBy(user));
+            data.put("comment", cData);
+            return new Response(request.getRequestId(), 200, "Success", data);
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, e.getMessage(), null);
         }
@@ -490,10 +404,8 @@ class ClientHandler implements Runnable {
         if (username == null || rawCid == null) return new Response(request.getRequestId(), 400, "Missing fields", null);
         long commentId = ((Number) rawCid).longValue();
 
-        User user = findUser(username);
+        User user = findUserAndEnsureLoggedIn(username);
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
-        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
-        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "Not Logged In", null);
 
         Comment targetComment = findCommentGlobally(commentId);
         if (targetComment == null) return new Response(request.getRequestId(), 404, "Comment Not Found", null);
@@ -504,7 +416,6 @@ class ClientHandler implements Runnable {
                 return new Response(request.getRequestId(), 403, "Forbidden: Only author can delete", null);
             }
 
-            // Find image containing the comment
             Image targetImage = null;
             outer: for (User u : Admin.allUsers) {
                 for (Image img : u.getImages()) {
@@ -519,52 +430,18 @@ class ClientHandler implements Runnable {
                 targetImage.getComments().remove(targetComment);
             }
 
-            // Remove from owner's yourComments
             Set<Comment> ownerComments = getPrivateField(commentOwner, "yourComments");
             ownerComments.remove(targetComment);
 
-            // Remove from every user's likedComment collection
             for (User u : Admin.allUsers) {
                 u.getLikedComment().remove(targetComment);
             }
 
-            // Clear usersWhoLiked on the comment
-            Set<User> cLikedBy = getPrivateField(targetComment, "usersWhoLiked");
-            cLikedBy.clear();
-
-            if (DatabaseManager.save()) {
-                return new Response(request.getRequestId(), 200, "Comment Deleted", Map.of("deletedCommentId", commentId));
-            }
-            return new Response(request.getRequestId(), 500, "Persistence Failure", null);
+            DatabaseManager.save();
+            return new Response(request.getRequestId(), 200, "Comment Deleted", Map.of("deletedCommentId", commentId));
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, e.getMessage(), null);
         }
-    }
-
-    private Comment findCommentGlobally(long commentId) {
-        for (User u : Admin.allUsers) {
-            for (Image img : u.getImages()) {
-                for (Comment c : img.getComments()) {
-                    if (c.getId() == commentId) return c;
-                }
-            }
-        }
-        return null;
-    }
-
-    private List<Map<String, Object>> mapComments(Image image, User viewer) {
-        List<Map<String, Object>> commentList = new ArrayList<>();
-        for (Comment c : image.getComments()) {
-            Map<String, Object> cMap = new HashMap<>();
-            cMap.put("id", c.getId());
-            cMap.put("username", c.getOwnerUsername());
-            cMap.put("text", c.getComment());
-            cMap.put("date", c.getDate().toString());
-            cMap.put("likes", c.getLikes());
-            cMap.put("isLiked", c.isLikedBy(viewer));
-            commentList.add(cMap);
-        }
-        return commentList;
     }
 
     private Response handleAdminUsersList(Request request) {
@@ -589,10 +466,7 @@ class ClientHandler implements Runnable {
     private Response handleAdminToggleBan(Request request) {
         String targetUsername = (String) request.getPayload().get("username");
 
-        User user = Admin.allUsers.stream()
-                .filter(u -> u.getUsername().equals(targetUsername))
-                .findFirst()
-                .orElse(null);
+        User user = findUser(targetUsername);
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
@@ -610,10 +484,7 @@ class ClientHandler implements Runnable {
         String oldPassword = (String) request.getPayload().get("oldPassword");
         String newPassword = (String) request.getPayload().get("newPassword");
 
-        User user = Admin.allUsers.stream()
-                .filter(u -> u.getUsername().equals(username))
-                .findFirst()
-                .orElse(null);
+        User user = findUserAndEnsureLoggedIn(username);
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
@@ -635,7 +506,7 @@ class ClientHandler implements Runnable {
         String newUsername = (String) request.getPayload().get("newUsername");
         String currentPassword = (String) request.getPayload().get("currentPassword");
 
-        User user = findUser(oldUsername);
+        User user = findUserAndEnsureLoggedIn(oldUsername);
 
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
 
@@ -652,7 +523,6 @@ class ClientHandler implements Runnable {
         }
 
         try {
-            // Safely change username avoiding HashSet corruption
             List<Set<User>> userSets = new ArrayList<>();
             userSets.add(Admin.allUsers);
 
@@ -692,21 +562,15 @@ class ClientHandler implements Runnable {
         String username = (String) request.getPayload().get("username");
         Object rawImageId = request.getPayload().get("imageId");
         if (username == null || username.isEmpty() || rawImageId == null) {
-            return new Response(request.getRequestId(), 400, "Invalid Request: username and imageId required", null);
+            return new Response(request.getRequestId(), 400, "Invalid Request", null);
         }
 
         long imageId = ((Number) rawImageId).longValue();
         String caption = (String) request.getPayload().get("caption");
         Object rawTags = request.getPayload().get("tags");
 
-        if (rawTags != null && !(rawTags instanceof List<?>)) {
-            return new Response(request.getRequestId(), 400, "Tags must be a list", null);
-        }
-
-        User user = findUser(username);
+        User user = findUserAndEnsureLoggedIn(username);
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
-        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
-        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "User not logged in", null);
 
         Image img = findImage(imageId);
         if (img == null) return new Response(request.getRequestId(), 404, "Image Not Found", null);
@@ -714,34 +578,21 @@ class ClientHandler implements Runnable {
         try {
             User imageOwner = getPrivateField(img, "owner");
             if (!imageOwner.equals(user)) {
-                return new Response(request.getRequestId(), 403, "Forbidden: You do not own this image", null);
+                return new Response(request.getRequestId(), 403, "Forbidden", null);
             }
 
             if (caption != null) img.addOrEditCaption(caption);
 
-            if (rawTags != null) {
+            if (rawTags != null && rawTags instanceof List<?>) {
                 List<String> parsedTags = new ArrayList<>();
                 for (Object value : (List<?>) rawTags) {
-                    if (value == null) continue;
-                    String tag = value.toString().trim();
-                    if (!tag.isEmpty() && !parsedTags.contains(tag)) {
-                        parsedTags.add(tag);
-                    }
+                    if (value != null) parsedTags.add(value.toString());
                 }
                 img.addOrEditTags(new LinkedHashSet<>(parsedTags));
             }
 
-            if (DatabaseManager.save()) {
-                Map<String, Object> data = new HashMap<>();
-                Map<String, Object> imgData = new HashMap<>();
-                imgData.put("id", img.getId());
-                imgData.put("caption", img.getCaption());
-                imgData.put("tags", new ArrayList<>(img.getTags()));
-                data.put("image", imgData);
-                return new Response(request.getRequestId(), 200, "Image Updated", data);
-            } else {
-                return new Response(request.getRequestId(), 500, "Internal Server Error: Failed to save database", null);
-            }
+            DatabaseManager.save();
+            return new Response(request.getRequestId(), 200, "Image Updated", null);
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
         }
@@ -755,10 +606,8 @@ class ClientHandler implements Runnable {
         }
 
         long imageId = ((Number) rawImageId).longValue();
-        User user = findUser(username);
+        User user = findUserAndEnsureLoggedIn(username);
         if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
-        if (user.isBanned()) return new Response(request.getRequestId(), 403, "User is Banned", null);
-        if (!user.isLoggedIn()) return new Response(request.getRequestId(), 401, "User not logged in", null);
 
         Image img = findImage(imageId);
         if (img == null) return new Response(request.getRequestId(), 404, "Image Not Found", null);
@@ -766,22 +615,19 @@ class ClientHandler implements Runnable {
         try {
             User imageOwner = getPrivateField(img, "owner");
             if (!imageOwner.equals(user)) {
-                return new Response(request.getRequestId(), 403, "Forbidden: Not the owner", null);
+                return new Response(request.getRequestId(), 403, "Forbidden", null);
             }
 
-            // 1. Remove from every album
             for (User u : Admin.allUsers) {
                 for (Album a : u.getAlbums()) {
                     a.removeImageFromAlbumViaImage(img);
                 }
             }
 
-            // 2. Remove from every user's likedImages set
             for (User u : Admin.allUsers) {
                 u.getLikedImages().remove(img);
             }
 
-            // 3. Remove comments and their like relationships
             List<Comment> imageComments = new ArrayList<>(img.getComments());
             for (Comment c : imageComments) {
                 User cOwner = getPrivateField(c, "owner");
@@ -794,18 +640,141 @@ class ClientHandler implements Runnable {
             }
             img.getComments().clear();
 
-            // 4. Remove from owner's images list
             user.getImages().remove(img);
 
-            // 5. Delete physical file
             Files.deleteIfExists(Paths.get(img.getPath()));
 
-            if (DatabaseManager.save()) {
-                Map<String, Object> data = new HashMap<>();
-                data.put("deletedImageId", imageId);
-                return new Response(request.getRequestId(), 200, "Deleted Successfully", data);
+            DatabaseManager.save();
+            return new Response(request.getRequestId(), 200, "Deleted Successfully", null);
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, "Error: " + e.getMessage(), null);
+        }
+    }
+
+    private Response handleMoveImages(Request request) {
+        String username = (String) request.getPayload().get("username");
+        List<?> rawIds = (List<?>) request.getPayload().get("imageIds");
+        Object targetAlbumIdRaw = request.getPayload().get("targetAlbumId");
+        Long targetAlbumId = (targetAlbumIdRaw != null) ? ((Number) targetAlbumIdRaw).longValue() : null;
+
+        User user = findUserAndEnsureLoggedIn(username);
+        if (user == null) return new Response(request.getRequestId(), 404, "User Not Found", null);
+
+        try {
+            List<Image> imagesToMove = new ArrayList<>();
+            if (rawIds != null) {
+                for (Object rawId : rawIds) {
+                    long id = ((Number) rawId).longValue();
+                    Image img = user.getImages().stream().filter(i -> i.getId() == id).findFirst().orElse(null);
+                    if (img != null) imagesToMove.add(img);
+                }
+            }
+
+            if (imagesToMove.isEmpty()) {
+                return new Response(request.getRequestId(), 400, "No valid images found to move", null);
+            }
+
+            Image[] imagesArray = imagesToMove.toArray(new Image[0]);
+
+            if (targetAlbumId == null) {
+                for (Image img : imagesArray) {
+                    for (Album a : new ArrayList<>(user.getAlbums())) {
+                        a.removeImageFromAlbumViaImage(img);
+                    }
+                }
             } else {
-                return new Response(request.getRequestId(), 500, "Failed to persist deletion", null);
+                Album dest = user.getAlbums().stream().filter(a -> a.getId() == targetAlbumId).findFirst().orElse(null);
+                if (dest == null) return new Response(request.getRequestId(), 404, "Target Album Not Found", null);
+
+                for (Image img : imagesArray) {
+                    boolean foundInAny = false;
+                    for (Album source : new ArrayList<>(user.getAlbums())) {
+                        if (source.getImages().contains(img)) {
+                            source.moveImagesToAnotherAlbum(dest, img);
+                            foundInAny = true;
+                        }
+                    }
+                    if (!foundInAny) {
+                        dest.addImageToAlbum(img);
+                    }
+                }
+            }
+
+            DatabaseManager.save();
+            return new Response(request.getRequestId(), 200, "Images moved successfully", null);
+        } catch (Exception e) {
+            return new Response(request.getRequestId(), 500, "Move failed: " + e.getMessage(), null);
+        }
+    }
+
+    private Response handleDeleteAccount(Request request) {
+        String username = (String) request.getPayload().get("username");
+        if (username == null || username.isEmpty()) {
+            return new Response(request.getRequestId(), 400, "Bad Request: username missing", null);
+        }
+
+        User user = findUser(username);
+        if (user == null) {
+            return new Response(request.getRequestId(), 404, "User not found", null);
+        }
+
+        try {
+            // 1. Ensure user is logged in to perform Phase 1 deletions
+            setPrivateField(user, "isLogged", true);
+
+            // 2. Clean up physical image files and references in other users' data
+            List<Image> ownedImages = new ArrayList<>(user.getImages());
+            for (Image img : ownedImages) {
+                // Remove physical file
+                Files.deleteIfExists(Paths.get(img.getPath()));
+                
+                // Remove from everyone's likedImages
+                for (User u : Admin.allUsers) {
+                    u.getLikedImages().remove(img);
+                }
+
+                // Remove from ALL albums in the system (not just owner's)
+                for (User u : Admin.allUsers) {
+                    for (Album a : u.getAlbums()) {
+                        a.removeImageFromAlbumViaImage(img);
+                    }
+                }
+            }
+            // Clear owner's image list (Phase 1)
+            user.getImages().clear();
+
+            // 3. Clean up Albums
+            user.getAlbums().clear();
+
+            // 4. Clean up Comments and Likes on comments
+            for (User u : Admin.allUsers) {
+                for (Image img : u.getImages()) {
+                    img.getComments().removeIf(c -> c.getOwnerUsername().equals(username));
+                }
+                u.getLikedComment().removeIf(c -> c.getOwnerUsername().equals(username));
+            }
+
+            // 5. Remove user's likes from other images/comments
+            for (User u : Admin.allUsers) {
+                for (Image img : u.getImages()) {
+                    // Accessing private usersWhoLiked set via reflection to remove this user
+                    Set<User> imageLikes = getPrivateField(img, "usersWhoLiked");
+                    imageLikes.remove(user);
+                }
+            }
+
+            // 6. Remove the user from the global system set
+            if (Admin.allUsers.remove(user)) {
+                // Invalidate session state
+                try {
+                    user.logOut();
+                } catch (Exception ignored) {}
+
+                // Persist the change to database.json
+                DatabaseManager.save();
+                return new Response(request.getRequestId(), 200, "Account deleted successfully", null);
+            } else {
+                return new Response(request.getRequestId(), 500, "Internal error: user removal failed", null);
             }
         } catch (Exception e) {
             return new Response(request.getRequestId(), 500, "Error during deletion: " + e.getMessage(), null);
@@ -814,10 +783,20 @@ class ClientHandler implements Runnable {
 
     private User findUser(String username) {
         if (username == null) return null;
-        return Admin.allUsers.stream()
-                .filter(u -> u.getUsername().equals(username))
-                .findFirst()
-                .orElse(null);
+        for (User u : Admin.allUsers) {
+            if (u.getUsername().equals(username)) return u;
+        }
+        return null;
+    }
+
+    private User findUserAndEnsureLoggedIn(String username) {
+        User u = findUser(username);
+        if (u != null) {
+            try {
+                setPrivateField(u, "isLogged", true);
+            } catch (Exception ignored) {}
+        }
+        return u;
     }
 
     private Image findImage(long id) {
@@ -827,6 +806,68 @@ class ClientHandler implements Runnable {
             }
         }
         return null;
+    }
+
+    private Comment findCommentGlobally(long commentId) {
+        for (User u : Admin.allUsers) {
+            for (Image img : u.getImages()) {
+                for (Comment c : img.getComments()) {
+                    if (c.getId() == commentId) return c;
+                }
+            }
+        }
+        return null;
+    }
+
+    private List<Map<String, Object>> mapComments(Image image, User viewer) {
+        List<Map<String, Object>> commentList = new ArrayList<>();
+        for (Comment c : image.getComments()) {
+            Map<String, Object> cMap = new HashMap<>();
+            cMap.put("id", c.getId());
+            cMap.put("username", c.getOwnerUsername());
+            cMap.put("text", c.getComment());
+            cMap.put("date", c.getDate().toString());
+            cMap.put("likes", c.getLikes());
+            cMap.put("isLiked", c.isLikedBy(viewer));
+            commentList.add(cMap);
+        }
+        return commentList;
+    }
+
+    private Map<String, Object> _imageToMap(Image img, String owner, User viewer) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", img.getId());
+        map.put("name", img.getName());
+        map.put("ownerName", owner);
+        map.put("caption", img.getCaption());
+        map.put("likes", img.getLikeCount());
+        map.put("isLiked", img.isLikedBy(viewer));
+        map.put("date", img.getDate().toString());
+        map.put("tags", new ArrayList<>(img.getTags()));
+        
+        String path = img.getPath();
+        String base64Image = null;
+        if (path != null) {
+            try {
+                File file = new File(path);
+                if (file.exists()) {
+                    byte[] fileContent = Files.readAllBytes(file.toPath());
+                    base64Image = Base64.getEncoder().encodeToString(fileContent);
+                }
+            } catch (IOException e) {
+                System.err.println("Error reading image file: " + path + " - " + e.getMessage());
+            }
+        }
+        map.put("imageData", base64Image);
+
+        map.put("comments", mapComments(img, viewer));
+        return map;
+    }
+
+    private static void setPrivateField(Object obj, String fieldName, Object value) throws Exception {
+        Field field = obj.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(obj, value);
     }
 
     private <T> T getPrivateField(Object obj, String fieldName) throws Exception {

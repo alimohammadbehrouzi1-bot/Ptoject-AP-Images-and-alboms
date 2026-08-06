@@ -76,6 +76,10 @@ public class DatabaseManager {
     }
 
     public synchronized static boolean save() {
+        if (Admin.allAdmins.isEmpty() && Admin.allUsers.isEmpty()) {
+            System.err.println("Warning: Attempted to save empty state. Aborting to prevent data loss.");
+            return false;
+        }
         try {
             File directory = new File("storage");
             if (!directory.exists()) directory.mkdirs();

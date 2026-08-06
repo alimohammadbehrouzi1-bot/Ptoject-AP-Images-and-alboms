@@ -331,6 +331,10 @@ public class User {
 
 
     public void setEmail(String email) throws Exception {
+        if (email == null) {
+            this.email = null;
+            return;
+        }
         if (email.endsWith("@gmail.com") && !email.startsWith("@gmail.com")) {
             this.email = email;
             return;
