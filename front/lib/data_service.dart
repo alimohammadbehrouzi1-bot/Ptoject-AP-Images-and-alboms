@@ -206,7 +206,7 @@ class DataService {
       if (response.isSuccess && response.data != null) {
         final List<dynamic> images = response.data['images'] ?? [];
         return images
-            .map((img) => _mapToItem(img, img['owner'] ?? 'Unknown', null))
+            .map((img) => _mapToItem(img, img['ownerName'] ?? 'Unknown', null))
             .toList();
       }
     } catch (e) {

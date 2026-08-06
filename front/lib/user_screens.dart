@@ -2040,18 +2040,6 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                     ),
                     const SizedBox(height: 12),
                     ListTile(
-                      leading: const Icon(Icons.share_outlined),
-                      title: const Text('Sharing & Access'),
-                      onTap: _showSharingSettings,
-                      tileColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerLow,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ListTile(
                       leading: const Icon(
                         Icons.delete_forever_outlined,
                         color: Colors.red,
@@ -2145,45 +2133,6 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
       Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
     ],
   );
-
-  void _showSharingSettings() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Sharing & Access',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: const Text('Public Profile'),
-              subtitle: const Text('Allow others to search for you'),
-              value: true,
-              onChanged: (v) {},
-            ),
-            SwitchListTile(
-              title: const Text('Allow Comments'),
-              value: true,
-              onChanged: (v) {},
-            ),
-            SwitchListTile(
-              title: const Text('Show Likes'),
-              value: true,
-              onChanged: (v) {},
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   void _showChangeName() {
     final nameC = TextEditingController(text: widget.username);

@@ -24,7 +24,7 @@ public class DatabaseManager {
             .setPrettyPrinting()
             .create();
 
-    // --- DTO Classes for Flattened JSON Structure (to avoid circular references) ---
+
 
     private static class UserDTO {
         String username;
@@ -221,7 +221,7 @@ public class DatabaseManager {
                         owner.getAlbums().add(album);
                     }
 
-                    // 5. Restore Image details (likes/comments)
+
                     for (ImageDTO iDto : db.images) {
                         Image img = imageMap.get(iDto.id);
                         if (img == null) continue;
